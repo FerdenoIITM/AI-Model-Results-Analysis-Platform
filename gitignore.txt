@@ -1,0 +1,4 @@
+# Build folders
+build/
+executables/
+install/
