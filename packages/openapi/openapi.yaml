@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: AI Model Results Analysis Platform API
+  version: 0.1.0
+  description: |
+    Shared API contract scaffold. Paths and schemas will be filled in during implementation.
+servers:
+  - url: http://localhost:8080/api
+    description: Local API
+
+paths: {}
+
+components:
+  schemas: {}

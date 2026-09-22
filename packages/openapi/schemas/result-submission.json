@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amrap.local/schemas/result-submission.json",
+  "title": "ResultSubmission",
+  "description": "Payload for automated model/experiment result submission (scaffold).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "modelId": { "type": "string" },
+    "experimentId": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": ["modelId"]
+}
