@@ -11,5 +11,6 @@ public record UserSummary(
         UUID createdBy,
         boolean active,
         java.time.Instant lastLoginAt,
-        java.time.Instant createdAt) {
+        java.time.Instant createdAt,
+        java.time.Instant updatedAt) {
 }

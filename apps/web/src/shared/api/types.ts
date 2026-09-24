@@ -9,6 +9,7 @@ export interface UserSummary {
   active: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface LoginResponse {

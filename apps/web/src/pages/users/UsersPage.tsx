@@ -8,6 +8,19 @@ import {
 } from "../../shared/api/client";
 import type { UserRole, UserSummary } from "../../shared/api/types";
 
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function emptyCreateForm(defaultRole: UserRole) {
   return {
     displayName: "",
@@ -62,6 +75,13 @@ export function UsersPage() {
     if (!pendingDelete || pendingDelete.role !== "admin") return 0;
     return users.filter((u) => u.createdBy === pendingDelete.id).length;
   }, [pendingDelete, users]);
+
+  function resolveCreatedByName(createdBy: string | null): string {
+    if (!createdBy) return "—";
+    if (user?.id === createdBy) return user.displayName;
+    const creator = users.find((u) => u.id === createdBy);
+    return creator?.displayName ?? "—";
+  }
 
   function canManage(target: UserSummary): boolean {
     if (!user) return false;
@@ -231,6 +251,10 @@ export function UsersPage() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Active</th>
+                <th>Created by</th>
+                <th>Last login</th>
+                <th>Created</th>
+                <th>Updated</th>
                 <th></th>
               </tr>
             </thead>
@@ -241,6 +265,10 @@ export function UsersPage() {
                   <td>{u.email}</td>
                   <td>{u.role}</td>
                   <td>{u.active ? "yes" : "no"}</td>
+                  <td>{resolveCreatedByName(u.createdBy)}</td>
+                  <td className="nowrap">{formatDateTime(u.lastLoginAt)}</td>
+                  <td className="nowrap">{formatDateTime(u.createdAt)}</td>
+                  <td className="nowrap">{formatDateTime(u.updatedAt)}</td>
                   <td className="actions">
                     {canManage(u) ? (
                       <button type="button" className="btn ghost" onClick={() => openEditModal(u)}>

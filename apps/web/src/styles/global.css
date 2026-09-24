@@ -151,7 +151,7 @@ select {
 }
 
 .panel {
-  width: min(1100px, 100%);
+  width: min(1280px, 100%);
   margin: 0 auto;
   display: grid;
   gap: 1rem;
@@ -195,6 +195,10 @@ td {
   padding: 0.65rem 0.4rem;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .actions {

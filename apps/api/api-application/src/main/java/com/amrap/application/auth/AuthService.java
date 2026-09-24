@@ -73,6 +73,7 @@ public class AuthService {
                 user.getCreatedBy(),
                 user.isActive(),
                 user.getLastLoginAt(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.getUpdatedAt());
     }
 }
