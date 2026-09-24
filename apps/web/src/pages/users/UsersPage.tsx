@@ -21,6 +21,17 @@ function formatDateTime(value: string | null | undefined): string {
   });
 }
 
+function formatDateShort(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
 function emptyCreateForm(defaultRole: UserRole) {
   return {
     displayName: "",
@@ -252,9 +263,7 @@ export function UsersPage() {
                 <th>Role</th>
                 <th>Active</th>
                 <th>Created by</th>
-                <th>Last login</th>
-                <th>Created</th>
-                <th>Updated</th>
+                <th>Dates</th>
                 <th></th>
               </tr>
             </thead>
@@ -266,9 +275,25 @@ export function UsersPage() {
                   <td>{u.role}</td>
                   <td>{u.active ? "yes" : "no"}</td>
                   <td>{resolveCreatedByName(u.createdBy)}</td>
-                  <td className="nowrap">{formatDateTime(u.lastLoginAt)}</td>
-                  <td className="nowrap">{formatDateTime(u.createdAt)}</td>
-                  <td className="nowrap">{formatDateTime(u.updatedAt)}</td>
+                  <td>
+                    <span className="dates-hint" tabIndex={0}>
+                      {formatDateShort(u.createdAt)}
+                      <span className="dates-tooltip" role="tooltip">
+                        <span>
+                          <strong>Last login</strong>
+                          {formatDateTime(u.lastLoginAt)}
+                        </span>
+                        <span>
+                          <strong>Created</strong>
+                          {formatDateTime(u.createdAt)}
+                        </span>
+                        <span>
+                          <strong>Updated</strong>
+                          {formatDateTime(u.updatedAt)}
+                        </span>
+                      </span>
+                    </span>
+                  </td>
                   <td className="actions">
                     {canManage(u) ? (
                       <button type="button" className="btn ghost" onClick={() => openEditModal(u)}>

@@ -151,7 +151,7 @@ select {
 }
 
 .panel {
-  width: min(1280px, 100%);
+  width: min(1100px, 100%);
   margin: 0 auto;
   display: grid;
   gap: 1rem;
@@ -199,6 +199,54 @@ td {
 
 .nowrap {
   white-space: nowrap;
+}
+
+.dates-hint {
+  position: relative;
+  display: inline-block;
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line);
+  cursor: default;
+  outline: none;
+}
+
+.dates-hint:hover,
+.dates-hint:focus-visible {
+  color: var(--ink);
+}
+
+.dates-tooltip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.45rem);
+  z-index: 20;
+  display: none;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.75rem;
+  min-width: 15rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  white-space: nowrap;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.dates-tooltip > span {
+  display: contents;
+}
+
+.dates-tooltip strong {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dates-hint:hover .dates-tooltip,
+.dates-hint:focus-visible .dates-tooltip {
+  display: grid;
 }
 
 .actions {
