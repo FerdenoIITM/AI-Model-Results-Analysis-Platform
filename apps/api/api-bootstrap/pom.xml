@@ -10,5 +10,34 @@
   </parent>
   <artifactId>api-bootstrap</artifactId>
   <name>api-bootstrap</name>
-  <description>Spring Boot main application entrypoint (scaffold)</description>
+  <dependencies>
+    <dependency>
+      <groupId>com.amrap</groupId>
+      <artifactId>api-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.amrap</groupId>
+      <artifactId>api-application</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.amrap</groupId>
+      <artifactId>api-persistence</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.amrap</groupId>
+      <artifactId>api-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
 </project>

@@ -1,13 +1,21 @@
 # API overview
 
-Source of truth for request/response shapes: [`packages/openapi/openapi.yaml`](../packages/openapi/openapi.yaml).
+Source of truth: [`packages/openapi/openapi.yaml`](../packages/openapi/openapi.yaml).
 
-Planned endpoint groups (to be implemented):
+## Auth
 
-- Auth — login / token refresh
-- Models — register and list AI/ML models
-- Results — submit, list, filter experiment/prediction results
-- Analytics — compare models and track metrics over time
-- LLM — natural-language query over stored results
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| POST | `/api/auth/login` | No | Returns JWT + user |
+| GET | `/api/auth/me` | Bearer | Current user |
 
-Implementation lives under `apps/api` (Java Spring Boot).
+## Users
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/api/users` | Bearer | Superadmin: all; Admin: self + created members; Member: 403 |
+| POST | `/api/users` | Bearer | Superadmin: admin/member; Admin: member only |
+| PATCH | `/api/users/{id}` | Bearer | Ownership rules; role change = superadmin only |
+| POST | `/api/users/{id}/deactivate` | Bearer | Soft deactivate |
+
+Implementation: `apps/api` (Java Spring Boot).

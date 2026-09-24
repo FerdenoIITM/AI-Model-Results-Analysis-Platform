@@ -1,16 +1,12 @@
 package com.amrap;
 
-/**
- * Spring Boot application entrypoint.
- * Wiring and annotations will be added during implementation.
- */
-public final class ApiApplication {
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-    private ApiApplication() {
-    }
+@SpringBootApplication(scanBasePackages = "com.amrap")
+public class ApiApplication {
 
     public static void main(String[] args) {
-        // SpringApplication.run(ApiApplication.class, args);
-        throw new UnsupportedOperationException("Scaffold only — Spring Boot not wired yet");
+        SpringApplication.run(ApiApplication.class, args);
     }
 }

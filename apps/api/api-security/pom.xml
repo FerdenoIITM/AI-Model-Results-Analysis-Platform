@@ -10,5 +10,32 @@
   </parent>
   <artifactId>api-security</artifactId>
   <name>api-security</name>
-  <description>Authentication and access control (scaffold)</description>
+  <dependencies>
+    <dependency>
+      <groupId>com.amrap</groupId>
+      <artifactId>api-domain</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
 </project>

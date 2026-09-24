@@ -1,15 +1,22 @@
 # apps/api — Java Spring Boot backend
 
-Multi-module Maven project. Modules:
+## Modules
 
 | Module | Role |
 |--------|------|
-| api-bootstrap | Spring Boot entrypoint |
-| api-web | REST controllers / DTOs |
-| api-domain | Domain entities |
-| api-application | Use-cases (ingest, validate, query, analytics) |
-| api-persistence | JPA / repositories |
-| api-security | Auth & access control |
-| api-llm | Spring AI NL interface |
+| api-bootstrap | Entrypoint + `application.yml` |
+| api-web | REST controllers |
+| api-application | Auth + user management use-cases |
+| api-persistence | JPA `users` mapping |
+| api-security | JWT + BCrypt + filter chain |
+| api-domain | `User`, `UserRole` |
+| api-llm | Reserved (not wired yet) |
 
-Scaffold only — implement features in later milestones.
+## Build / run
+
+```bash
+mvn -pl api-bootstrap -am package -DskipTests
+mvn -pl api-bootstrap -am spring-boot:run
+```
+
+Requires env vars (or defaults): `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `JWT_SECRET`.

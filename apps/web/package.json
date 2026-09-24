@@ -3,15 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "AI Model Results Analysis Platform — web dashboard (scaffold)",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",

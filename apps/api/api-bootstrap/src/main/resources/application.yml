@@ -1,0 +1,33 @@
+server:
+  port: ${API_PORT:8080}
+
+spring:
+  application:
+    name: amrap-api
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/${POSTGRES_DB:amrap}
+    username: ${POSTGRES_USER:amrap}
+    password: ${POSTGRES_PASSWORD:changeme}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: false
+
+amrap:
+  security:
+    jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
+    jwt-expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    max-failed-attempts: 5
+    lock-duration-minutes: 15
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

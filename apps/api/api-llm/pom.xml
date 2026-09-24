@@ -10,5 +10,5 @@
   </parent>
   <artifactId>api-llm</artifactId>
   <name>api-llm</name>
-  <description>Spring AI natural-language query orchestration (scaffold)</description>
+  <description>Reserved for Spring AI — not wired in Milestone 2</description>
 </project>

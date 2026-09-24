@@ -1,11 +1,15 @@
-# apps/web — React + TypeScript dashboard
+# apps/web — React dashboard
 
-Feature-sliced layout:
+## Dev
 
-- `src/app` — routing, providers, auth guard
-- `src/pages` — login, dashboard, models, experiments, compare, ask (LLM)
-- `src/features` — auth, results, analytics, llm-chat
-- `src/shared` — UI primitives, hooks, API client
-- `src/styles` — global styles
+```bash
+cd apps/web
+npm install
+npm run dev
+```
 
-Scaffold only — install dependencies and implement UI in later milestones.
+Uses Vite proxy `/api` → `http://localhost:8080`.
+
+## Docker
+
+Built by root `docker compose up --build` (see `infra/docker/web.Dockerfile`).

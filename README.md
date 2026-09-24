@@ -2,49 +2,51 @@
 
 Platform for collecting, storing, monitoring, and analyzing results from AI/deep learning models.
 
-```text
-AI/ML Models → API → Validation/Processing → Database → Analytics → Dashboard
-                                              ↘ LLM (natural-language queries)
-```
+## Milestone 2 — Auth + User Management
 
-## Stack
+- Java Spring Boot API with JWT login and role-based user APIs
+- React dashboard: Login → Dashboard → User Management (Superadmin/Admin)
+- Docker Compose runs **api** + **web**; PostgreSQL is your **local** instance (pgAdmin)
 
-| Layer | Technology |
-|-------|------------|
-| API, validation, auth, analytics, LLM orchestration | Java (Spring Boot + Spring AI) |
-| Web dashboard | React + TypeScript (Vite) |
-| Database | PostgreSQL |
-| Orchestration | Docker Compose |
+## Quick start
 
-## Repository layout
-
-```text
-apps/api          Java Spring Boot multi-module backend
-apps/web          React dashboard
-services/llm      Reserved for a standalone LLM worker (optional later)
-packages/openapi  Shared API contracts
-infra/            Dockerfiles, DB migrations, nginx
-docs/             Architecture and design notes
-scripts/          Bootstrap and seed helpers
-```
-
-## Quick start (Docker)
+1. Ensure `users` table exists and Superadmin is inserted (see `infra/db/`).
+2. Install host tools (Docker) and create `.env` if needed:
 
 ```bash
-cp .env.example .env
+./scripts/install-deps.sh
+# optional local Java/Node: ./scripts/install-deps.sh --with-dev
+```
+
+3. Edit `.env` with your local Postgres credentials and a long `JWT_SECRET`.
+
+4. Start API + web:
+
+```bash
 make up
 ```
 
-- API: `http://localhost:8080`
-- Web: `http://localhost:5173`
-- DB: `localhost:5432`
+- Web: http://localhost:5173  
+- API: http://localhost:8080/api  
 
-With reverse proxy (prod profile):
+From Docker, the API reaches host Postgres via `host.docker.internal` (set in compose).
+
+## Local dev (without Docker)
 
 ```bash
-make prod
+# API
+cd apps/api && mvn -pl api-bootstrap -am spring-boot:run
+
+# Web
+cd apps/web && npm install && npm run dev
 ```
 
-## Status
+For local API, set `POSTGRES_HOST=localhost` in the environment.
 
-Folder structure scaffold only — application logic, dependencies, and images will be added in later milestones.
+## Roles
+
+| Role | User Management |
+|------|-----------------|
+| superadmin | Full CRUD (cannot create superadmin via UI/API) |
+| admin | Members they created only |
+| member | No User Management (403 on `/api/users`) |

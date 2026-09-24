@@ -10,5 +10,10 @@
   </parent>
   <artifactId>api-domain</artifactId>
   <name>api-domain</name>
-  <description>Domain entities and domain services (scaffold)</description>
+  <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+    </dependency>
+  </dependencies>
 </project>
