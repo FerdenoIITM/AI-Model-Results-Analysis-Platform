@@ -18,8 +18,6 @@ Application identity for authentication and role-based authorization.
 | `created_by` | `UUID` FK → `users.id` | Creator; `NULL` for bootstrap Superadmin(s) |
 | `is_active` | `BOOLEAN` | Soft deactivation; inactive users cannot log in |
 | `last_login_at` | `TIMESTAMPTZ` | Last successful login |
-| `failed_login_attempts` | `INTEGER` | Brute-force counter |
-| `locked_until` | `TIMESTAMPTZ` | Optional temporary lockout |
 | `password_changed_at` | `TIMESTAMPTZ` | For future password-policy checks |
 | `created_at` / `updated_at` | `TIMESTAMPTZ` | Audit; `updated_at` via trigger |
 
@@ -50,7 +48,7 @@ Superadmin (created_by NULL)
 
 ### Authentication vs authorization
 
-- **Authentication:** email + `password_hash` (+ `is_active` / lockout fields).
+- **Authentication:** email + `password_hash` (+ `is_active`).
 - **Authorization:** `role` and ownership via `created_by`.
 
 ## Planned later (not in V1)

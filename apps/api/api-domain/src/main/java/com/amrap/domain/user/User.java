@@ -13,8 +13,6 @@ public class User {
     private UUID createdBy;
     private boolean active;
     private Instant lastLoginAt;
-    private int failedLoginAttempts;
-    private Instant lockedUntil;
     private Instant passwordChangedAt;
     private Instant createdAt;
     private Instant updatedAt;
@@ -81,22 +79,6 @@ public class User {
 
     public void setLastLoginAt(Instant lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
-    }
-
-    public int getFailedLoginAttempts() {
-        return failedLoginAttempts;
-    }
-
-    public void setFailedLoginAttempts(int failedLoginAttempts) {
-        this.failedLoginAttempts = failedLoginAttempts;
-    }
-
-    public Instant getLockedUntil() {
-        return lockedUntil;
-    }
-
-    public void setLockedUntil(Instant lockedUntil) {
-        this.lockedUntil = lockedUntil;
     }
 
     public Instant getPasswordChangedAt() {

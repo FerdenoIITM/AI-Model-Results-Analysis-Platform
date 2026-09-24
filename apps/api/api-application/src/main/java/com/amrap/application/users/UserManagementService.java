@@ -27,13 +27,15 @@ public class UserManagementService {
 
     @Transactional(readOnly = true)
     public List<UserSummary> listUsers(AuthenticatedUser actor) {
-        return switch (actor.getRole()) {
+        List<UserSummary> users = switch (actor.getRole()) {
             case SUPERADMIN -> userRepository.findAll().stream().map(AuthService::toSummary).toList();
-            case ADMIN -> userRepository.findVisibleToAdmin(actor.getId()).stream()
+            case ADMIN -> userRepository.findByCreatedBy(actor.getId()).stream()
                     .map(AuthService::toSummary)
                     .toList();
             case MEMBER -> throw new AppException(403, "Members cannot access user management");
         };
+        // Management list shows accounts the actor can manage — never their own row.
+        return users.stream().filter(u -> !u.id().equals(actor.getId())).toList();
     }
 
     @Transactional
@@ -71,7 +73,6 @@ public class UserManagementService {
         user.setDisplayName(command.displayName().trim());
         user.setCreatedBy(actor.getId());
         user.setActive(true);
-        user.setFailedLoginAttempts(0);
         user.setPasswordChangedAt(Instant.now());
 
         return AuthService.toSummary(userRepository.save(user));
@@ -87,6 +88,16 @@ public class UserManagementService {
 
         if (command.displayName() != null && !command.displayName().isBlank()) {
             target.setDisplayName(command.displayName().trim());
+        }
+
+        if (command.email() != null && !command.email().isBlank()) {
+            String email = AuthService.normalizeEmail(command.email());
+            if (!email.equalsIgnoreCase(target.getEmail())) {
+                if (userRepository.existsByEmail(email)) {
+                    throw new AppException(409, "Email already exists");
+                }
+                target.setEmail(email);
+            }
         }
 
         if (command.password() != null && !command.password().isBlank()) {
@@ -122,7 +133,36 @@ public class UserManagementService {
 
     @Transactional
     public UserSummary deactivateUser(AuthenticatedUser actor, UUID targetId) {
-        return updateUser(actor, targetId, new UpdateUserCommand(null, null, null, false));
+        return updateUser(actor, targetId, new UpdateUserCommand(null, null, null, null, false));
+    }
+
+    /**
+     * Hard-delete a user. Superadmin only.
+     * If the target is an Admin, their created users are reassigned to the deleting Superadmin
+     * before the Admin row is removed (preserves FK / ownership).
+     */
+    @Transactional
+    public void deleteUser(AuthenticatedUser actor, UUID targetId) {
+        if (actor.getRole() != UserRole.SUPERADMIN) {
+            throw new AppException(403, "Only superadmin can delete users");
+        }
+        if (actor.getId().equals(targetId)) {
+            throw new AppException(403, "Cannot delete your own account");
+        }
+
+        User target = userRepository
+                .findById(targetId)
+                .orElseThrow(() -> new AppException(404, "User not found"));
+
+        if (target.getRole() == UserRole.SUPERADMIN) {
+            throw new AppException(403, "Cannot delete a superadmin via API");
+        }
+
+        if (target.getRole() == UserRole.ADMIN) {
+            userRepository.reassignCreatedBy(target.getId(), actor.getId());
+        }
+
+        userRepository.deleteById(target.getId());
     }
 
     private void assertCanManage(AuthenticatedUser actor, User target) {

@@ -27,7 +27,7 @@ paths:
         '401':
           description: Invalid credentials
         '403':
-          description: Inactive or locked
+          description: Inactive account
 
   /auth/me:
     get:
@@ -192,6 +192,9 @@ components:
       properties:
         displayName:
           type: string
+        email:
+          type: string
+          format: email
         password:
           type: string
           minLength: 8

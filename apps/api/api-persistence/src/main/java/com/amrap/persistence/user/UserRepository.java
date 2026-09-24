@@ -32,8 +32,8 @@ public class UserRepository {
         return jpaRepository.findAll().stream().map(UserMapper::toDomain).toList();
     }
 
-    public List<User> findVisibleToAdmin(UUID adminId) {
-        return jpaRepository.findByCreatedByOrId(adminId, adminId).stream()
+    public List<User> findByCreatedBy(UUID createdBy) {
+        return jpaRepository.findByCreatedBy(createdBy).stream()
                 .map(UserMapper::toDomain)
                 .toList();
     }
@@ -49,5 +49,19 @@ public class UserRepository {
         UserMapper.copyToEntity(user, entity);
         UserEntity saved = jpaRepository.save(entity);
         return UserMapper.toDomain(saved);
+    }
+
+    @Transactional
+    public void reassignCreatedBy(UUID fromCreatorId, UUID toCreatorId) {
+        List<UserEntity> owned = jpaRepository.findByCreatedBy(fromCreatorId);
+        for (UserEntity entity : owned) {
+            entity.setCreatedBy(toCreatorId);
+        }
+        jpaRepository.saveAll(owned);
+    }
+
+    @Transactional
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
     }
 }

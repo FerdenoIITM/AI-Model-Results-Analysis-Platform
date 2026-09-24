@@ -15,8 +15,6 @@ CREATE TABLE users (
     created_by              UUID NULL,
     is_active               BOOLEAN NOT NULL DEFAULT TRUE,
     last_login_at           TIMESTAMPTZ NULL,
-    failed_login_attempts   INTEGER NOT NULL DEFAULT 0,
-    locked_until            TIMESTAMPTZ NULL,
     password_changed_at     TIMESTAMPTZ NULL,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,7 +24,6 @@ CREATE TABLE users (
         email = LOWER(email)
         AND email ~* '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$'
     ),
-    CONSTRAINT ck_users_failed_login_attempts CHECK (failed_login_attempts >= 0),
     CONSTRAINT fk_users_created_by
         FOREIGN KEY (created_by)
         REFERENCES users (id)

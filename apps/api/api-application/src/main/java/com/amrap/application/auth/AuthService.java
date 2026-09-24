@@ -5,8 +5,6 @@ import com.amrap.domain.user.User;
 import com.amrap.persistence.user.UserRepository;
 import com.amrap.security.JwtService;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,20 +15,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final int maxFailedAttempts;
-    private final long lockDurationMinutes;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService,
-            @Value("${amrap.security.max-failed-attempts:5}") int maxFailedAttempts,
-            @Value("${amrap.security.lock-duration-minutes:15}") long lockDurationMinutes) {
+            JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
-        this.maxFailedAttempts = maxFailedAttempts;
-        this.lockDurationMinutes = lockDurationMinutes;
     }
 
     @Transactional
@@ -44,18 +36,11 @@ public class AuthService {
             throw new AppException(403, "Account is deactivated");
         }
 
-        Instant now = Instant.now();
-        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
-            throw new AppException(403, "Account is temporarily locked. Try again later.");
-        }
-
         if (!passwordEncoder.matches(command.password(), user.getPasswordHash())) {
-            registerFailedAttempt(user, now);
             throw new AppException(401, "Invalid email or password");
         }
 
-        user.setFailedLoginAttempts(0);
-        user.setLockedUntil(null);
+        Instant now = Instant.now();
         user.setLastLoginAt(now);
         userRepository.save(user);
 
@@ -70,16 +55,6 @@ public class AuthService {
                 .findById(userId)
                 .orElseThrow(() -> new AppException(404, "User not found"));
         return toSummary(user);
-    }
-
-    private void registerFailedAttempt(User user, Instant now) {
-        int attempts = user.getFailedLoginAttempts() + 1;
-        user.setFailedLoginAttempts(attempts);
-        if (attempts >= maxFailedAttempts) {
-            user.setLockedUntil(now.plus(lockDurationMinutes, ChronoUnit.MINUTES));
-            user.setFailedLoginAttempts(0);
-        }
-        userRepository.save(user);
     }
 
     public static String normalizeEmail(String email) {

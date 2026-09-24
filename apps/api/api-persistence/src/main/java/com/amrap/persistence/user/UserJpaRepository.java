@@ -12,7 +12,7 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, UUID> {
 
     boolean existsByEmailIgnoreCase(String email);
 
-    List<UserEntity> findByCreatedByOrId(UUID createdBy, UUID id);
+    List<UserEntity> findByCreatedBy(UUID createdBy);
 
     List<UserEntity> findByRole(UserRole role);
 }

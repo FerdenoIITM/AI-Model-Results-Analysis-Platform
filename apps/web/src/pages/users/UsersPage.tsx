@@ -2,22 +2,54 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useAuth } from "../../features/auth/AuthContext";
 import {
   createUser,
-  deactivateUser,
+  deleteUser,
   listUsers,
   updateUser,
 } from "../../shared/api/client";
 import type { UserRole, UserSummary } from "../../shared/api/types";
+
+function emptyCreateForm(defaultRole: UserRole) {
+  return {
+    displayName: "",
+    email: "",
+    password: "",
+    role: defaultRole,
+  };
+}
+
+type EditForm = {
+  displayName: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  active: boolean;
+};
+
+function editFormFromUser(u: UserSummary): EditForm {
+  return {
+    displayName: u.displayName,
+    email: u.email,
+    password: "",
+    role: u.role,
+    active: u.active,
+  };
+}
 
 export function UsersPage() {
   const { token, user } = useAuth();
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<UserSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserSummary | null>(null);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState<UserRole>("member");
+  const defaultRole: UserRole = user?.role === "superadmin" ? "admin" : "member";
+  const [form, setForm] = useState(() => emptyCreateForm("member"));
 
   const roleOptions = useMemo(() => {
     if (user?.role === "superadmin") {
@@ -25,6 +57,64 @@ export function UsersPage() {
     }
     return ["member"] as UserRole[];
   }, [user]);
+
+  const pendingOwnedCount = useMemo(() => {
+    if (!pendingDelete || pendingDelete.role !== "admin") return 0;
+    return users.filter((u) => u.createdBy === pendingDelete.id).length;
+  }, [pendingDelete, users]);
+
+  function canManage(target: UserSummary): boolean {
+    if (!user) return false;
+    if (user.role === "superadmin") return true;
+    return (
+      user.role === "admin" &&
+      target.role === "member" &&
+      target.createdBy === user.id
+    );
+  }
+
+  function canChangeRole(target: UserSummary): boolean {
+    return (
+      user?.role === "superadmin" &&
+      (target.role === "admin" || target.role === "member")
+    );
+  }
+
+  function canToggleActive(target: UserSummary): boolean {
+    if (target.role === "superadmin") return false;
+    return canManage(target);
+  }
+
+  function canDelete(target: UserSummary): boolean {
+    return (
+      user?.role === "superadmin" &&
+      target.role !== "superadmin" &&
+      target.id !== user.id
+    );
+  }
+
+  function openCreateModal() {
+    setError(null);
+    setForm(emptyCreateForm(defaultRole === "admin" ? "admin" : "member"));
+    setCreateOpen(true);
+  }
+
+  function closeCreateModal() {
+    if (creating) return;
+    setCreateOpen(false);
+  }
+
+  function openEditModal(target: UserSummary) {
+    setError(null);
+    setEditingUser(target);
+    setEditForm(editFormFromUser(target));
+  }
+
+  function closeEditModal() {
+    if (saving) return;
+    setEditingUser(null);
+    setEditForm(null);
+  }
 
   async function refresh() {
     if (!token) return;
@@ -47,92 +137,87 @@ export function UsersPage() {
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
+    setCreating(true);
     setError(null);
     try {
-      await createUser(token, { email, password, displayName, role });
-      setEmail("");
-      setPassword("");
-      setDisplayName("");
-      setRole("member");
+      await createUser(token, {
+        email: form.email,
+        password: form.password,
+        displayName: form.displayName,
+        role: form.role,
+      });
+      setCreateOpen(false);
+      setForm(emptyCreateForm(defaultRole === "admin" ? "admin" : "member"));
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
+    } finally {
+      setCreating(false);
     }
   }
 
-  async function onDeactivate(id: string) {
-    if (!token) return;
+  async function onSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!token || !editingUser || !editForm) return;
+    setSaving(true);
+    setError(null);
     try {
-      await deactivateUser(token, id);
+      const payload: {
+        displayName?: string;
+        email?: string;
+        password?: string;
+        role?: UserRole;
+        active?: boolean;
+      } = {
+        displayName: editForm.displayName,
+        email: editForm.email,
+      };
+      if (editForm.password.trim()) {
+        payload.password = editForm.password;
+      }
+      if (canChangeRole(editingUser) && editForm.role !== editingUser.role) {
+        payload.role = editForm.role;
+      }
+      if (canToggleActive(editingUser)) {
+        payload.active = editForm.active;
+      }
+      await updateUser(token, editingUser.id, payload);
+      setEditingUser(null);
+      setEditForm(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Deactivate failed");
+      setError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function onActivate(id: string) {
-    if (!token) return;
+  async function confirmDelete() {
+    if (!token || !pendingDelete || user?.role !== "superadmin") return;
+    setDeleting(true);
+    setError(null);
     try {
-      await updateUser(token, id, { active: true });
+      await deleteUser(token, pendingDelete.id);
+      setPendingDelete(null);
+      setEditingUser(null);
+      setEditForm(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Activate failed");
-    }
-  }
-
-  async function onToggleRole(target: UserSummary) {
-    if (!token || user?.role !== "superadmin") return;
-    if (target.role === "superadmin") return;
-    const next: UserRole = target.role === "admin" ? "member" : "admin";
-    try {
-      await updateUser(token, target.id, { role: next });
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Role change failed");
+      setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleting(false);
     }
   }
 
   return (
     <section className="panel">
-      <h1>User Management</h1>
-      {error ? <p className="error">{error}</p> : null}
-
-      <form className="create-form" onSubmit={onCreate}>
-        <h2>Create user</h2>
-        <div className="grid">
-          <label>
-            Display name
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-          </label>
-          <label>
-            Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
-          <label>
-            Role
-            <select value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
-              {roleOptions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <button className="btn primary" type="submit">
-          Create
+      <div className="panel-header">
+        <h1>User Management</h1>
+        <button type="button" className="btn primary" onClick={openCreateModal}>
+          Create user
         </button>
-      </form>
+      </div>
+      {error ? <p className="error">{error}</p> : null}
 
       <h2>Users</h2>
       {loading ? (
@@ -146,59 +231,293 @@ export function UsersPage() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Active</th>
-                <th>Actions</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
-                const canToggleActive =
-                  u.role !== "superadmin" &&
-                  (user?.role === "superadmin" ||
-                    (user?.role === "admin" &&
-                      u.role === "member" &&
-                      u.createdBy === user.id));
-                const canChangeRole =
-                  user?.role === "superadmin" && (u.role === "admin" || u.role === "member");
-                const hasActions = canChangeRole || canToggleActive;
-                return (
-                  <tr key={u.id}>
-                    <td>{u.displayName}</td>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-                    <td>{u.active ? "yes" : "no"}</td>
-                    <td className="actions">
-                      {canChangeRole ? (
-                        <button type="button" className="btn ghost" onClick={() => void onToggleRole(u)}>
-                          Make {u.role === "admin" ? "member" : "admin"}
-                        </button>
-                      ) : null}
-                      {canToggleActive && u.active ? (
-                        <button
-                          type="button"
-                          className="btn danger"
-                          onClick={() => void onDeactivate(u.id)}
-                        >
-                          Deactivate
-                        </button>
-                      ) : null}
-                      {canToggleActive && !u.active ? (
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          onClick={() => void onActivate(u.id)}
-                        >
-                          Activate
-                        </button>
-                      ) : null}
-                      {!hasActions ? <span className="muted">—</span> : null}
-                    </td>
-                  </tr>
-                );
-              })}
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.displayName}</td>
+                  <td>{u.email}</td>
+                  <td>{u.role}</td>
+                  <td>{u.active ? "yes" : "no"}</td>
+                  <td className="actions">
+                    {canManage(u) ? (
+                      <button type="button" className="btn ghost" onClick={() => openEditModal(u)}>
+                        Edit
+                      </button>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {createOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeCreateModal}>
+          <div
+            className="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="create-dialog-title">Create user</h2>
+            <form className="modal-form" onSubmit={onCreate}>
+              <fieldset className="form-section">
+                <legend>Account</legend>
+                <div className="grid">
+                  <label>
+                    Display name
+                    <input
+                      value={form.displayName}
+                      onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Email
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Password
+                    <input
+                      type="password"
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                      minLength={8}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Role
+                    <select
+                      value={form.role}
+                      onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
+                    >
+                      {roleOptions.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="form-section">
+                <legend>Access</legend>
+                <p className="muted">
+                  Extra access options (modules, data scope, permissions) will be added here later.
+                </p>
+              </fieldset>
+
+              <div className="modal-actions">
+                <button type="button" className="btn ghost" disabled={creating} onClick={closeCreateModal}>
+                  Cancel
+                </button>
+                <button className="btn primary" type="submit" disabled={creating}>
+                  {creating ? "Creating…" : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {editingUser && editForm ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeEditModal}>
+          <div
+            className="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="edit-dialog-title">Edit user</h2>
+            <form className="modal-form" onSubmit={onSaveEdit}>
+              <fieldset className="form-section">
+                <legend>Account</legend>
+                <div className="grid">
+                  <label>
+                    Display name
+                    <input
+                      value={editForm.displayName}
+                      onChange={(e) =>
+                        setEditForm((f) => (f ? { ...f, displayName: e.target.value } : f))
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    Email
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) =>
+                        setEditForm((f) => (f ? { ...f, email: e.target.value } : f))
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    New password
+                    <input
+                      type="password"
+                      value={editForm.password}
+                      onChange={(e) =>
+                        setEditForm((f) => (f ? { ...f, password: e.target.value } : f))
+                      }
+                      minLength={8}
+                      placeholder="Leave blank to keep current"
+                    />
+                  </label>
+                  <label>
+                    Role
+                    {canChangeRole(editingUser) ? (
+                      <select
+                        value={editForm.role}
+                        onChange={(e) =>
+                          setEditForm((f) =>
+                            f ? { ...f, role: e.target.value as UserRole } : f
+                          )
+                        }
+                      >
+                        {roleOptions.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input value={editingUser.role} disabled />
+                    )}
+                  </label>
+                  <div className="toggle-field">
+                    <span className="toggle-label">Active</span>
+                    {canToggleActive(editingUser) ? (
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={editForm.active}
+                        className={`toggle ${editForm.active ? "on" : ""}`}
+                        onClick={() =>
+                          setEditForm((f) => (f ? { ...f, active: !f.active } : f))
+                        }
+                      >
+                        <span className="toggle-thumb" />
+                        <span className="toggle-text">{editForm.active ? "Active" : "Inactive"}</span>
+                      </button>
+                    ) : (
+                      <span className="muted">{editingUser.active ? "Active" : "Inactive"}</span>
+                    )}
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset className="form-section">
+                <legend>Access</legend>
+                <p className="muted">
+                  Extra access options (modules, data scope, permissions) will be added here later.
+                </p>
+              </fieldset>
+
+              <div className="modal-actions modal-actions-spread">
+                {canDelete(editingUser) ? (
+                  <button
+                    type="button"
+                    className="btn danger"
+                    disabled={saving}
+                    onClick={() => setPendingDelete(editingUser)}
+                  >
+                    Delete user
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <div className="modal-actions">
+                  <button type="button" className="btn ghost" disabled={saving} onClick={closeEditModal}>
+                    Cancel
+                  </button>
+                  <button className="btn primary" type="submit" disabled={saving}>
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingDelete ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => !deleting && setPendingDelete(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-dialog-title">Confirm deletion</h2>
+            {pendingDelete.role === "admin" ? (
+              pendingOwnedCount > 0 ? (
+                <>
+                  <p>
+                    Admin <strong>{pendingDelete.displayName}</strong> has {pendingOwnedCount}{" "}
+                    member{pendingOwnedCount === 1 ? "" : "s"}:
+                  </p>
+                  <ul className="modal-list">
+                    {users
+                      .filter((u) => u.createdBy === pendingDelete.id)
+                      .map((m) => (
+                        <li key={m.id}>
+                          {m.displayName} — {m.email}
+                        </li>
+                      ))}
+                  </ul>
+                  <p>They will be transferred to Superadmin. Delete this admin?</p>
+                </>
+              ) : (
+                <p>
+                  Admin <strong>{pendingDelete.displayName}</strong> has no members. Are you sure
+                  you want to delete?
+                </p>
+              )
+            ) : (
+              <p>
+                Delete <strong>{pendingDelete.displayName}</strong> ({pendingDelete.email})?
+              </p>
+            )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={deleting}
+                onClick={() => setPendingDelete(null)}
+              >
+                No, cancel
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting ? "Deleting…" : "Yes, delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

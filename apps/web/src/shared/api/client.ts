@@ -71,7 +71,13 @@ export async function createUser(
 export async function updateUser(
   token: string,
   id: string,
-  payload: { displayName?: string; password?: string; role?: UserRole; active?: boolean }
+  payload: {
+    displayName?: string;
+    email?: string;
+    password?: string;
+    role?: UserRole;
+    active?: boolean;
+  }
 ): Promise<UserSummary> {
   const res = await fetch(`${API_BASE}/users/${id}`, {
     method: "PATCH",
@@ -93,4 +99,14 @@ export async function deactivateUser(token: string, id: string): Promise<UserSum
     throw new Error(await parseError(res));
   }
   return res.json();
+}
+
+export async function deleteUser(token: string, id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/users/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
 }
