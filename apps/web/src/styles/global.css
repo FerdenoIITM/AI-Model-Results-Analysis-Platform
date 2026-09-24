@@ -181,7 +181,7 @@ select {
 }
 
 .table-wrap {
-  overflow: auto;
+  overflow-x: auto;
 }
 
 table {
@@ -202,7 +202,6 @@ td {
 }
 
 .dates-hint {
-  position: relative;
   display: inline-block;
   color: var(--muted);
   border-bottom: 1px dotted var(--line);
@@ -210,17 +209,16 @@ td {
   outline: none;
 }
 
+.dates-hint.open,
 .dates-hint:hover,
 .dates-hint:focus-visible {
   color: var(--ink);
 }
 
 .dates-tooltip {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 0.45rem);
-  z-index: 20;
-  display: none;
+  position: fixed;
+  z-index: 80;
+  display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.35rem 0.75rem;
   min-width: 15rem;
@@ -233,6 +231,7 @@ td {
   white-space: nowrap;
   font-size: 0.86rem;
   line-height: 1.35;
+  pointer-events: none;
 }
 
 .dates-tooltip > span {
@@ -242,11 +241,6 @@ td {
 .dates-tooltip strong {
   font-weight: 600;
   color: var(--muted);
-}
-
-.dates-hint:hover .dates-tooltip,
-.dates-hint:focus-visible .dates-tooltip {
-  display: grid;
 }
 
 .actions {

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "../../features/auth/AuthContext";
 import {
   createUser,
@@ -30,6 +31,83 @@ function formatDateShort(value: string | null | undefined): string {
     month: "short",
     day: "2-digit",
   });
+}
+
+function DatesCell({ lastLoginAt, createdAt }: { lastLoginAt: string | null; createdAt: string }) {
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; ready: boolean }>({
+    top: 0,
+    left: 0,
+    ready: false,
+  });
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current || !tipRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const tip = tipRef.current.getBoundingClientRect();
+    const gap = 8;
+    let top = rect.bottom + gap;
+    if (top + tip.height > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - tip.height - gap);
+    }
+    let left = rect.left;
+    if (left + tip.width > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - tip.width - 8);
+    }
+    setCoords({ top, left, ready: true });
+  }, [open, lastLoginAt, createdAt]);
+
+  function show() {
+    setCoords((c) => ({ ...c, ready: false }));
+    setOpen(true);
+  }
+
+  function hide() {
+    setOpen(false);
+    setCoords({ top: 0, left: 0, ready: false });
+  }
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        className={`dates-hint${open ? " open" : ""}`}
+        tabIndex={0}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        {formatDateShort(createdAt)}
+      </span>
+      {open
+        ? createPortal(
+            <span
+              ref={tipRef}
+              className="dates-tooltip"
+              role="tooltip"
+              style={{
+                top: coords.top,
+                left: coords.left,
+                visibility: coords.ready ? "visible" : "hidden",
+              }}
+            >
+              <span>
+                <strong>Last login</strong>
+                {formatDateTime(lastLoginAt)}
+              </span>
+              <span>
+                <strong>Created</strong>
+                {formatDateTime(createdAt)}
+              </span>
+            </span>,
+            document.body
+          )
+        : null}
+    </>
+  );
 }
 
 function emptyCreateForm(defaultRole: UserRole) {
@@ -276,23 +354,7 @@ export function UsersPage() {
                   <td>{u.active ? "yes" : "no"}</td>
                   <td>{resolveCreatedByName(u.createdBy)}</td>
                   <td>
-                    <span className="dates-hint" tabIndex={0}>
-                      {formatDateShort(u.createdAt)}
-                      <span className="dates-tooltip" role="tooltip">
-                        <span>
-                          <strong>Last login</strong>
-                          {formatDateTime(u.lastLoginAt)}
-                        </span>
-                        <span>
-                          <strong>Created</strong>
-                          {formatDateTime(u.createdAt)}
-                        </span>
-                        <span>
-                          <strong>Updated</strong>
-                          {formatDateTime(u.updatedAt)}
-                        </span>
-                      </span>
-                    </span>
+                    <DatesCell lastLoginAt={u.lastLoginAt} createdAt={u.createdAt} />
                   </td>
                   <td className="actions">
                     {canManage(u) ? (
