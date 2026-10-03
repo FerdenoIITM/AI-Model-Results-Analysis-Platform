@@ -23,7 +23,7 @@ Source of truth: [`packages/openapi/openapi.yaml`](../packages/openapi/openapi.y
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| POST | `/api/results` | Bearer **or** `X-Ingest-Key` | Writes raw JSON to disk, inserts metadata row (`is_vectorized=false`) |
+| POST | `/api/results` | `X-Ingest-Key` **or** Bearer (superadmin) | Writes raw JSON to disk, inserts metadata row (`is_vectorized=false`). Admin and member JWTs receive 403. |
 | GET | `/api/results` | Bearer | Latest results first; `?limit=N` (default 100, max 500) |
 | GET | `/api/results/{id}` | Bearer | Metadata row |
 | GET | `/api/results/{id}/payload` | Bearer | Raw JSON file content |

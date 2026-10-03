@@ -4,7 +4,7 @@ Platform for collecting, storing, monitoring, and analyzing results from AI/deep
 
 ## Milestone 3 — Result Ingestion + RAG Chat
 
-- Machine endpoint `POST /api/results` ingests arbitrary JSON (API key or JWT) → file on disk + metadata row
+- Machine endpoint `POST /api/results` ingests arbitrary JSON (`X-Ingest-Key`, or a superadmin JWT) → file on disk + metadata row
 - Background worker chunks the JSON, embeds via Ollama, writes into pgvector (`result_chunks`)
 - `POST /api/chat` answers natural-language questions via RAG over the vector store
 - UI: new **Results** page (list + submit + reindex) and **Chat** page (filters + citations)
@@ -82,13 +82,13 @@ Planned next: separate env configs (e.g. `.env.dev`, `.env.test`, `.env.prod`) a
 
 | Role | User Management | Results & Chat |
 |------|-----------------|----------------|
-| superadmin | Full CRUD (cannot create superadmin via UI/API) | All + `POST /api/results/reindex` |
-| admin | Members they created only | Submit + view + chat |
-| member | No User Management (403 on `/api/users`) | Submit + view + chat |
+| superadmin | Full CRUD (cannot create superadmin via UI/API) | Submit + view + chat + `POST /api/results/reindex` |
+| admin | Members they created only | View + chat |
+| member | No User Management (403 on `/api/users`) | View + chat |
 
 ## RAG workflow
 
-1. **Ingest** — `POST /api/results` with headers `X-Ingest-Key: <INGEST_API_KEY>` (or a user JWT) and body `{ modelName, version, iterationId, payload }`. The raw JSON is written to `./data/results/<year>/<month>/<day>/<uuid>.json` and a row is inserted with `is_vectorized=false`.
+1. **Ingest** — `POST /api/results` with header `X-Ingest-Key: <INGEST_API_KEY>` (normal path for Postman, Python, and other clients) or a superadmin JWT (website fallback) and body `{ modelName, version, iterationId, payload }`. Admin and member JWTs receive 403. The raw JSON is written to `./data/results/<year>/<month>/<day>/<uuid>.json` and a row is inserted with `is_vectorized=false`.
 2. **Vectorize (automatic)** — The background worker polls every `RAG_WORKER_DELAY_MS`, chunks the JSON, calls Ollama's embedding model (`nomic-embed-text`), writes chunks + vectors into `result_chunks`, and flips the row to `is_vectorized=true`.
 3. **Chat** — `POST /api/chat` with `{ question, modelName?, version?, fromIso?, toIso? }`. The service filters by metadata, runs HNSW similarity in pgvector, and asks the Ollama chat model (`llama3.2:3b`) to answer using the retrieved chunks. Returns `{ answer, citations[] }`.
 4. **Reindex** — Superadmin can call `POST /api/results/reindex` from the Results page: it truncates `result_chunks` and flips every row to `is_vectorized=false`; the worker re-embeds everything.

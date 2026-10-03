@@ -47,12 +47,15 @@ public class ResultController {
     }
 
     /**
-     * Machine ingest. Expected auth: `X-Ingest-Key` header OR a logged-in user JWT. The raw
-     * JSON of `payload` is persisted verbatim on disk.
+     * Machine ingest. Expected auth: `X-Ingest-Key` (synthetic superadmin) or a superadmin JWT.
+     * Admin and member JWTs are rejected. The raw JSON of `payload` is persisted verbatim on disk.
      */
     @PostMapping
     public ResponseEntity<ResultSummary> ingest(@Valid @RequestBody CreateResultRequest request) {
         AuthenticatedUser actor = SecurityUtils.requireCurrentUser();
+        if (actor.getRole() != UserRole.SUPERADMIN) {
+            throw new AppException(403, "Only superadmin can submit results");
+        }
         String rawJson;
         try {
             rawJson = objectMapper.writeValueAsString(request.payload());

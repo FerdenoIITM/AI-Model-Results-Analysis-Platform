@@ -148,10 +148,11 @@ paths:
     post:
       summary: Ingest a new model result (JSON payload is stored on disk)
       description: |
-        Accepts either a Bearer JWT (user) or an `X-Ingest-Key` header (machine).
-        The `payload` field is stored verbatim as a JSON file; metadata goes into
-        the `results` table with `is_vectorized=false`. A background worker will
-        chunk + embed the content and flip the flag to `true`.
+        Normal path is `X-Ingest-Key` (machine clients: Postman, scripts, imported OpenAPI).
+        A Bearer JWT is accepted only when the user is superadmin (website fallback).
+        Admin and member JWTs receive 403. The `payload` field is stored verbatim as a
+        JSON file; metadata goes into the `results` table with `is_vectorized=false`.
+        A background worker will chunk + embed the content and flip the flag to `true`.
       security:
         - bearerAuth: []
         - ingestKey: []
@@ -168,6 +169,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResultSummary'
+        '403':
+          description: Authenticated user is not superadmin
 
   /results/{id}:
     get:

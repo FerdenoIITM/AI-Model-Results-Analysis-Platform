@@ -54,6 +54,7 @@ export function ResultsPage() {
   const [payloadLoading, setPayloadLoading] = useState(false);
 
   const canReindex = user?.role === "superadmin";
+  const canSubmit = user?.role === "superadmin";
 
   async function refresh() {
     if (!token) return;
@@ -170,9 +171,11 @@ export function ResultsPage() {
               {reindexing ? "Resetting…" : "Reindex vectors"}
             </button>
           ) : null}
-          <button type="button" className="btn primary" onClick={() => setCreateOpen(true)}>
-            Submit result
-          </button>
+          {canSubmit ? (
+            <button type="button" className="btn primary" onClick={() => setCreateOpen(true)}>
+              Submit result
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -257,7 +260,7 @@ export function ResultsPage() {
         </div>
       )}
 
-      {createOpen ? (
+      {canSubmit && createOpen ? (
         <div
           className="modal-backdrop"
           role="presentation"
