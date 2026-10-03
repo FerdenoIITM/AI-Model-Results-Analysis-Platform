@@ -2,25 +2,33 @@
 
 Platform for collecting, storing, monitoring, and analyzing results from AI/deep learning models.
 
-## Milestone 2 — Auth + User Management
+## Milestone 3 — Result Ingestion + RAG Chat
 
-- Java Spring Boot API with JWT login and role-based user APIs
-- React dashboard: Login → Dashboard → User Management (Superadmin/Admin)
-- Docker Compose runs **api** + **web**; PostgreSQL is your **local** instance (pgAdmin)
+- Machine endpoint `POST /api/results` ingests arbitrary JSON (API key or JWT) → file on disk + metadata row
+- Background worker chunks the JSON, embeds via Ollama, writes into pgvector (`result_chunks`)
+- `POST /api/chat` answers natural-language questions via RAG over the vector store
+- UI: new **Results** page (list + submit + reindex) and **Chat** page (filters + citations)
+
+Earlier milestones (still present):
+- Milestone 2: Auth (JWT) and User Management (Superadmin/Admin/Member)
+- Docker Compose runs **api** + **web** + **ollama**; Postgres is your local instance by default
 
 ## Quick start
 
-1. Ensure `users` table exists and Superadmin is inserted (see `infra/db/`).
-2. Install host tools (Docker) and create `.env` if needed:
+1. Make sure your Postgres has `pgvector` installed. Options:
+   - Host Postgres (Debian/Ubuntu): `sudo apt-get install postgresql-16-pgvector`
+   - Or use the containerized DB: `docker compose --profile local-db up db` (image already includes pgvector)
+2. Apply SQL migrations in order (via pgAdmin or `psql`): `V1__init.sql`, `V2__drop_login_lockout.sql`, `V3__results_rag.sql` — see [`infra/db/migrations/`](infra/db/migrations/). Seed the first Superadmin (see [`infra/db/seeds/`](infra/db/seeds/)).
+3. Install host tools (Docker) and create `.env` if needed:
 
 ```bash
 ./scripts/install-deps.sh
 # optional local Java/Node: ./scripts/install-deps.sh --with-dev
 ```
 
-3. Edit `.env` with your local Postgres credentials and a long `JWT_SECRET`.
+4. Edit `.env` with your Postgres credentials, a long `JWT_SECRET`, and a fresh `INGEST_API_KEY`.
 
-4. Choose how to run:
+5. Choose how to run:
 
 ### Day-to-day coding (hot reload) — recommended
 
@@ -72,8 +80,35 @@ Planned next: separate env configs (e.g. `.env.dev`, `.env.test`, `.env.prod`) a
 
 ## Roles
 
-| Role | User Management |
-|------|-----------------|
-| superadmin | Full CRUD (cannot create superadmin via UI/API) |
-| admin | Members they created only |
-| member | No User Management (403 on `/api/users`) |
+| Role | User Management | Results & Chat |
+|------|-----------------|----------------|
+| superadmin | Full CRUD (cannot create superadmin via UI/API) | All + `POST /api/results/reindex` |
+| admin | Members they created only | Submit + view + chat |
+| member | No User Management (403 on `/api/users`) | Submit + view + chat |
+
+## RAG workflow
+
+1. **Ingest** — `POST /api/results` with headers `X-Ingest-Key: <INGEST_API_KEY>` (or a user JWT) and body `{ modelName, version, iterationId, payload }`. The raw JSON is written to `./data/results/<year>/<month>/<day>/<uuid>.json` and a row is inserted with `is_vectorized=false`.
+2. **Vectorize (automatic)** — The background worker polls every `RAG_WORKER_DELAY_MS`, chunks the JSON, calls Ollama's embedding model (`nomic-embed-text`), writes chunks + vectors into `result_chunks`, and flips the row to `is_vectorized=true`.
+3. **Chat** — `POST /api/chat` with `{ question, modelName?, version?, fromIso?, toIso? }`. The service filters by metadata, runs HNSW similarity in pgvector, and asks the Ollama chat model (`llama3.2:3b`) to answer using the retrieved chunks. Returns `{ answer, citations[] }`.
+4. **Reindex** — Superadmin can call `POST /api/results/reindex` from the Results page: it truncates `result_chunks` and flips every row to `is_vectorized=false`; the worker re-embeds everything.
+
+First boot downloads the Ollama models (~2 GB for `llama3.2:3b` + ~274 MB for `nomic-embed-text`); progress is in `amrap-ollama-init` logs.
+
+Example ingest:
+
+```bash
+curl -X POST http://localhost:8080/api/results \
+  -H "Content-Type: application/json" \
+  -H "X-Ingest-Key: $INGEST_API_KEY" \
+  -d '{
+    "modelName": "M1",
+    "version": "1.0.0",
+    "iterationId": "run-42",
+    "payload": {
+      "confidence": 0.93,
+      "classes": ["cat", "dog"],
+      "notes": "trained on 10k images; overfits past epoch 7"
+    }
+  }'
+```

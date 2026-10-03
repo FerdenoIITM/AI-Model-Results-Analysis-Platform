@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: AI Model Results Analysis Platform API
-  version: 0.2.0
-  description: Auth and User Management APIs (Milestone 2)
+  version: 0.3.0
+  description: Auth, User Management, Result Ingestion + RAG Chat (Milestone 3)
 servers:
   - url: http://localhost:8080/api
     description: Local API
@@ -122,12 +122,141 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserSummary'
 
+  /results:
+    get:
+      summary: List recent ingested results (newest first)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Results list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResultSummary'
+    post:
+      summary: Ingest a new model result (JSON payload is stored on disk)
+      description: |
+        Accepts either a Bearer JWT (user) or an `X-Ingest-Key` header (machine).
+        The `payload` field is stored verbatim as a JSON file; metadata goes into
+        the `results` table with `is_vectorized=false`. A background worker will
+        chunk + embed the content and flip the flag to `true`.
+      security:
+        - bearerAuth: []
+        - ingestKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResultRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultSummary'
+
+  /results/{id}:
+    get:
+      summary: Get a result's metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultSummary'
+
+  /results/{id}/payload:
+    get:
+      summary: Download the raw JSON payload of a result
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Raw JSON content
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /results/reindex:
+    post:
+      summary: Clear vector store and mark all results for re-vectorization (superadmin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reindex scheduled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reset:
+                    type: integer
+                  message:
+                    type: string
+
+  /chat:
+    post:
+      summary: Ask a natural-language question over ingested results (RAG)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Answer with citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    ingestKey:
+      type: apiKey
+      in: header
+      name: X-Ingest-Key
   schemas:
     LoginRequest:
       type: object
@@ -206,3 +335,113 @@ components:
           enum: [admin, member]
         active:
           type: boolean
+    ResultSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        modelName:
+          type: string
+        version:
+          type: string
+        iterationId:
+          type: string
+        jsonPath:
+          type: string
+          description: Relative path under RESULTS_STORAGE_DIR
+        sizeBytes:
+          type: integer
+          format: int64
+        insertedAt:
+          type: string
+          format: date-time
+        vectorized:
+          type: boolean
+        vectorizedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdBy:
+          type: string
+          format: uuid
+          nullable: true
+    CreateResultRequest:
+      type: object
+      required: [modelName, version, iterationId, payload]
+      properties:
+        modelName:
+          type: string
+          maxLength: 255
+        version:
+          type: string
+          maxLength: 100
+        iterationId:
+          type: string
+          maxLength: 255
+        payload:
+          type: object
+          additionalProperties: true
+          description: Arbitrary JSON. Stored verbatim on disk; keys are flattened by the worker.
+    ChatRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        modelName:
+          type: string
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        iterationId:
+          type: string
+          nullable: true
+        fromIso:
+          type: string
+          format: date-time
+          nullable: true
+        toIso:
+          type: string
+          format: date-time
+          nullable: true
+    ChatCitation:
+      type: object
+      properties:
+        resultId:
+          type: string
+          format: uuid
+          nullable: true
+        modelName:
+          type: string
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        iterationId:
+          type: string
+          nullable: true
+        insertedAt:
+          type: string
+          format: date-time
+          nullable: true
+        chunkIndex:
+          type: integer
+          nullable: true
+        score:
+          type: number
+          format: float
+          nullable: true
+    ChatResponse:
+      type: object
+      required: [answer, citations]
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatCitation'

@@ -384,9 +384,167 @@ select:disabled {
   text-align: left;
 }
 
+/* --- Results page --- */
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.badge.success {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: #e7f0ec;
+}
+
+.badge.pending {
+  color: #8a6b1a;
+  border-color: #d6c088;
+  background: #fff6df;
+}
+
+.json-textarea,
+.json-pre {
+  font-family: "Fira Code", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.json-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  resize: vertical;
+}
+
+.json-pre {
+  max-height: 24rem;
+  overflow: auto;
+  padding: 0.85rem 1rem;
+  background: #faf7ef;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dashboard-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* --- Chat page --- */
+
+.chat-panel {
+  min-height: 70vh;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+}
+
+.chat-list {
+  overflow: auto;
+  padding: 0.5rem 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 20rem;
+  max-height: 55vh;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #faf7ef;
+}
+
+.chat-empty {
+  padding: 1rem;
+}
+
+.chat-empty ul {
+  padding-left: 1.2rem;
+  margin: 0.35rem 0 0;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  background: #e7f0ec;
+  border-color: var(--accent);
+}
+
+.chat-bubble.assistant {
+  align-self: flex-start;
+}
+
+.chat-bubble.error {
+  border-color: var(--danger);
+  background: #fff0ef;
+  color: var(--danger);
+}
+
+.chat-bubble-text {
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.chat-citations {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+}
+
+.chat-citations summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.chat-citations ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.chat-input input {
+  flex: 1;
+}
+
+code {
+  background: #faf7ef;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  font-family: "Fira Code", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
 @media (max-width: 720px) {
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .chat-bubble {
+    max-width: 100%;
   }
 }

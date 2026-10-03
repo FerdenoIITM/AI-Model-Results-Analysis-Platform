@@ -8,6 +8,35 @@
 # Postgres: still your host DB via POSTGRES_* in .env (host.docker.internal).
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: amrap-ollama-dev
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - amrap_ollama_data:/root/.ollama
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: amrap-ollama-init-dev
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "Waiting for ollama server..."
+        until ollama list >/dev/null 2>&1; do sleep 2; done
+        echo "Pulling embedding model: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
+        ollama pull ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+        echo "Pulling chat model: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}"
+        ollama pull ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+        echo "Models ready."
+    restart: "no"
+
   api:
     build:
       context: .
@@ -26,11 +55,19 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-chars}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       API_PORT: 8080
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+      RESULTS_STORAGE_DIR: ${RESULTS_STORAGE_DIR:-/var/amrap/results}
+      INGEST_API_KEY: ${INGEST_API_KEY:-change-me-ingest-key}
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
       - ./apps/api:/workspace/apps/api
+      - ./data/results:/var/amrap/results
       - amrap_m2_cache:/root/.m2
+    depends_on:
+      - ollama
 
   web:
     image: node:20-alpine
@@ -52,3 +89,4 @@ services:
 volumes:
   amrap_m2_cache:
   amrap_web_node_modules:
+  amrap_ollama_data:

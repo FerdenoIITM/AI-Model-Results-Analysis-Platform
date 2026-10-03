@@ -18,11 +18,49 @@ spring:
           time_zone: UTC
   flyway:
     enabled: false
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:llama3.2:3b}
+          temperature: 0.2
+      embedding:
+        options:
+          model: ${OLLAMA_EMBED_MODEL:nomic-embed-text}
+      init:
+        pull-model-strategy: never
+    vectorstore:
+      pgvector:
+        # Table + extension are created by V3__results_rag.sql; let it alone.
+        initialize-schema: false
+        schema-name: public
+        table-name: result_chunks
+        dimensions: 768
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never
 
 amrap:
   security:
     jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
     jwt-expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  rag:
+    storage-dir: ${RESULTS_STORAGE_DIR:./data/results}
+    ingest-api-key: ${INGEST_API_KEY:change-me-ingest-key}
+    worker-delay-ms: ${RAG_WORKER_DELAY_MS:10000}
+    worker-batch-size: ${RAG_WORKER_BATCH_SIZE:5}
+    chunk-size: 800
+    chunk-overlap: 100
+    top-k: 6
 
 management:
   endpoints:

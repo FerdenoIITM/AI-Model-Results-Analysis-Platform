@@ -12,13 +12,22 @@ export function DashboardPage() {
         Signed in as <strong>{user?.displayName}</strong> ({user?.email}) with role{" "}
         <strong>{user?.role}</strong>.
       </p>
-      {canManageUsers ? (
-        <p>
-          <Link to="/users">Open User Management</Link>
-        </p>
-      ) : (
-        <p className="muted">Read-only access. User Management is not available for members.</p>
-      )}
+      <ul className="dashboard-links">
+        <li>
+          <Link to="/results">Model Results</Link>
+          <span className="muted"> — ingested JSON submissions with filters</span>
+        </li>
+        <li>
+          <Link to="/chat">Ask AMRAP</Link>
+          <span className="muted"> — natural-language chat over your results (RAG)</span>
+        </li>
+        {canManageUsers ? (
+          <li>
+            <Link to="/users">User Management</Link>
+            <span className="muted"> — create, edit, deactivate users</span>
+          </li>
+        ) : null}
+      </ul>
     </section>
   );
 }

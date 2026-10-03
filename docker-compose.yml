@@ -1,10 +1,12 @@
-# AMRAP — api + web against local PostgreSQL (no in-compose database by default).
+# AMRAP — api + web + ollama against local PostgreSQL (no in-compose database by default).
 # Optional: docker compose --profile local-db up  (only if you want a containerized Postgres)
 
 services:
   db:
     profiles: ["local-db"]
-    image: postgres:16-alpine
+    # pgvector/pgvector image = Postgres 16 + pgvector extension preinstalled.
+    # If you use host Postgres instead, install pgvector-16 on the host first.
+    image: pgvector/pgvector:pg16
     container_name: amrap-db
     restart: unless-stopped
     environment:
@@ -21,6 +23,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Local LLM + embedding server. First boot downloads models (slow); cached in ollama_data.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: amrap-ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # One-shot sidecar that pulls the embedding + chat models the first time compose comes up.
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: amrap-ollama-init
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "Waiting for ollama server..."
+        until ollama list >/dev/null 2>&1; do sleep 2; done
+        echo "Pulling embedding model: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}"
+        ollama pull ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+        echo "Pulling chat model: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}"
+        ollama pull ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+        echo "Models ready."
+    restart: "no"
 
   api:
     build:
@@ -40,8 +73,19 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-chars}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       API_PORT: 8080
+      # RAG / LLM
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
+      RESULTS_STORAGE_DIR: ${RESULTS_STORAGE_DIR:-/var/amrap/results}
+      INGEST_API_KEY: ${INGEST_API_KEY:-change-me-ingest-key}
     ports:
       - "${API_PORT:-8080}:8080"
+    volumes:
+      # Raw result JSON files live on the host so they survive container rebuilds.
+      - ./data/results:/var/amrap/results
+    depends_on:
+      - ollama
 
   web:
     build:
@@ -71,3 +115,4 @@ services:
 
 volumes:
   postgres_data:
+  ollama_data:

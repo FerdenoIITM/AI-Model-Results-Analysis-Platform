@@ -51,15 +51,63 @@ Superadmin (created_by NULL)
 - **Authentication:** email + `password_hash` (+ `is_active`).
 - **Authorization:** `role` and ownership via `created_by`.
 
-## Planned later (not in V1)
+## V3 — Results + RAG vector store
+
+See [`infra/db/migrations/V3__results_rag.sql`](../infra/db/migrations/V3__results_rag.sql).
+
+### Entity: Result
+
+One row per ingested AI model result. The raw JSON lives on disk at
+`${RESULTS_STORAGE_DIR}/<year>/<month>/<day>/<uuid>.json`. Postgres only stores metadata.
+
+| Column | Type | Notes |
+|--------|------|--------|
+| `id` | `UUID` | Primary key |
+| `model_name` | `VARCHAR(255)` | Logical model name (e.g. `M1`) |
+| `version` | `VARCHAR(100)` | Model version string (e.g. `1.0.0`) |
+| `iteration_id` | `VARCHAR(255)` | Caller-supplied iteration id |
+| `json_path` | `TEXT` | Relative path under storage dir |
+| `size_bytes` | `BIGINT` | Payload size |
+| `content_hash` | `VARCHAR(128)` | SHA-256 of file bytes |
+| `inserted_at` | `TIMESTAMPTZ` | When API stored the row |
+| `is_vectorized` | `BOOLEAN` | `FALSE` until worker embeds; flip to `FALSE` to force reindex |
+| `vectorized_at` | `TIMESTAMPTZ` | When worker last embedded |
+| `created_by` | `UUID` FK → `users.id` | NULL for machine ingest with API key |
+
+### Entity: result_chunks (Spring AI pgvector store)
+
+Managed by Spring AI's `PgVectorStore`. Each ingested result produces N chunks.
+
+| Column | Type | Notes |
+|--------|------|--------|
+| `id` | `UUID` | Primary key, assigned by Spring AI |
+| `content` | `TEXT` | Flattened chunk text |
+| `metadata` | `JSONB` | `{ result_id, chunk_index, model_name, version, iteration_id, inserted_at }` |
+| `embedding` | `VECTOR(768)` | HNSW index with cosine distance (matches `nomic-embed-text`) |
+
+Design notes:
+- Raw JSON is stored on disk, **not** in Postgres, to keep DB backups small for large payloads.
+- Chunks + embeddings are stored in Postgres because similarity search runs there (pgvector).
+- `is_vectorized` is the only operational knob needed to force re-embedding; the superadmin
+  endpoint `POST /api/results/reindex` truncates `result_chunks` and resets the flag.
+
+## Planned later
 
 | Entity | Purpose |
 |--------|---------|
 | Model | Registered AI/ML model metadata |
 | Experiment | A run/configuration of a model |
-| Result | Prediction or evaluation output |
-| Metric | Metrics attached to a result |
+| Metric | Structured metrics attached to a result (populate once we know the schema) |
 
 ## Bootstrap
 
 See [`infra/db/seeds/README.md`](../infra/db/seeds/README.md) for creating the first Superadmin securely.
+
+## Required Postgres extensions
+
+| Extension | Used by | Install (Debian/Ubuntu host) |
+|-----------|---------|------------------------------|
+| `pgcrypto` | `gen_random_uuid()` on users and results | ships with Postgres |
+| `vector` | pgvector for RAG | `sudo apt-get install postgresql-16-pgvector` |
+
+The Compose `local-db` profile uses the `pgvector/pgvector:pg16` image which ships both.

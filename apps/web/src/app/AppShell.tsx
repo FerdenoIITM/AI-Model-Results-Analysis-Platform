@@ -14,6 +14,8 @@ export function AppShell() {
         </div>
         <nav className="nav">
           <Link to="/">Dashboard</Link>
+          <Link to="/results">Results</Link>
+          <Link to="/chat">Chat</Link>
           {canManageUsers ? <Link to="/users">User Management</Link> : null}
         </nav>
         <div className="user-meta">

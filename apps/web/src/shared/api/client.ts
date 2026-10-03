@@ -1,4 +1,13 @@
-import type { LoginResponse, UserRole, UserSummary } from "./types";
+import type {
+  ChatRequest,
+  ChatResponse,
+  CreateResultRequest,
+  LoginResponse,
+  ReindexResponse,
+  ResultSummary,
+  UserRole,
+  UserSummary,
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -109,4 +118,64 @@ export async function deleteUser(token: string, id: string): Promise<void> {
   if (!res.ok) {
     throw new Error(await parseError(res));
   }
+}
+
+// --- Results (RAG) ---
+
+export async function listResults(token: string, limit = 100): Promise<ResultSummary[]> {
+  const res = await fetch(`${API_BASE}/results?limit=${limit}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.json();
+}
+
+export async function createResult(
+  token: string,
+  payload: CreateResultRequest
+): Promise<ResultSummary> {
+  const res = await fetch(`${API_BASE}/results`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.json();
+}
+
+export async function fetchResultPayload(token: string, id: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/results/${id}/payload`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.text();
+}
+
+export async function reindexResults(token: string): Promise<ReindexResponse> {
+  const res = await fetch(`${API_BASE}/results/reindex`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.json();
+}
+
+export async function sendChat(token: string, request: ChatRequest): Promise<ChatResponse> {
+  const res = await fetch(`${API_BASE}/chat`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.json();
 }
