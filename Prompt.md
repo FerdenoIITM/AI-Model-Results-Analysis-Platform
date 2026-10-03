@@ -1030,3 +1030,149 @@ EXACT SAME CONVERSATION IS STILL THERE
 ```
 
 The only problem being fixed is that the Chat conversation/memory currently gets cleared when switching tabs. Everything else must remain unchanged.
+
+
+------------------------------------------------------------------------------------------------
+
+No information is available from the provided context to answer the question.
+
+
+C — Context
+You are changing the existing AMRAP repo at:
+/home/ferdeno/IITM/CourseWork/CS5013 PAI/AI-Model-Results-Analysis-Platform
+
+Inspect the real code before editing. Relevant pieces:
+- Website submit form: apps/web/src/pages/results/ResultsPage.tsx (Submit result is currently shown to every role; only Reindex is superadmin-only)
+- API client: apps/web/src/shared/api/client.ts (createResult)
+- Ingest API: apps/api/api-web/.../results/ResultController.java POST /api/results
+- Machine auth: apps/api/api-security/.../ApiKeyAuthenticationFilter.java (header X-Ingest-Key)
+- Roles: superadmin, admin, member
+- Contract: packages/openapi/openapi.yaml and the summary in docs/api.md and README.md role table
+
+Most result rows will be created by external clients (Postman, a Python script, or an imported OpenAPI file), not by people clicking the website. Those clients authenticate with X-Ingest-Key. The website form is only a manual fallback.
+
+O — Objective
+Make website result submission superadmin-only, and keep external machine ingest working.
+
+1. On the Results page, show the Submit result button and the submit modal only when the signed-in user is superadmin. Admin and member must not see or open that form.
+2. Enforce the same rule on the API: a JWT for admin or member must receive 403 on POST /api/results. A superadmin JWT may still submit.
+3. Keep POST /api/results with a valid X-Ingest-Key as the normal ingest path for Postman, Python, and other external callers. Do not require a user login for that path.
+4. Leave list, metadata, payload view, chat, and superadmin reindex behavior unchanged. Admin and member can still view results and use chat.
+5. Update packages/openapi/openapi.yaml, docs/api.md, and the README role table so they match this rule.
+6. Do not add a hosted Swagger UI unless it is required for the rule above. The contract stays the existing OpenAPI file.
+
+O — Output
+- The smallest code change that enforces the rule in both the React page and the Java ingest endpoint.
+- Matching updates to the OpenAPI file and the two docs that currently say admin and member can submit.
+- A short summary of files changed and how to verify: superadmin can submit in the UI; admin and member cannot; curl/Postman with X-Ingest-Key still returns 201.
+
+S — Style
+Precise and local. Follow the patterns already in ResultsPage (see canReindex) and ResultController (see the reindex role check). Name files and roles explicitly.
+
+T — Tone
+Direct and implementation-focused. No architecture essay.
+
+A — Audience
+A coding agent that will edit this repository and must not invent a new ingest API.
+
+R — Response constraints
+Do not:
+- Remove or rename POST /api/results
+- Remove X-Ingest-Key authentication
+- Block admin or member from GET /api/results, viewing JSON, or using chat
+- Change vectorization, the worker, reindex rules, or the chat pipeline
+- Add Springdoc, Swagger UI, or a second API spec
+- Put secrets in git
+- Refactor unrelated pages
+
+Done when:
+- Superadmin sees Submit result and a successful submit still ingests JSON.
+- Admin and member do not see Submit result, and their JWT gets 403 from POST /api/results.
+- POST /api/results with X-Ingest-Key and body { modelName, version, iterationId, payload } still creates a result.
+- OpenAPI, docs/api.md, and the README role table describe that split.
+
+
+------------------------------------------------------------------------------------------------
+
+
+C — Context
+You are changing the existing AMRAP repo at:
+/home/ferdeno/IITM/CourseWork/CS5013 PAI/AI-Model-Results-Analysis-Platform
+
+Inspect the real code before editing. Relevant pieces:
+- Chat UI: apps/web/src/pages/chat/ChatPage.tsx
+  The page already keeps the thread in `messages`, but onSubmit calls sendChat with only the latest question (plus the Model/Version/Date filters). Clear already sets messages to [].
+  todayIsoRange() already builds the local-day fromIso/toIso used when the Date dropdown is "Today".
+- Client types: apps/web/src/shared/api/types.ts (ChatRequest) and apps/web/src/shared/api/client.ts (sendChat)
+- API body: apps/api/api-web/.../llm/ChatRequestBody.java
+- Controller: apps/api/api-web/.../llm/ChatController.java
+- RAG call: apps/api/api-application/.../query/ChatService.java
+  ask() embeds request.question() only, then prompts the chat model with one SystemMessage and one UserMessage (CONTEXT + QUESTION). Prior turns are not sent.
+  renderContext already labels each chunk with inserted_at.
+  buildFilter already applies fromIso/toIso when those fields are set.
+- Contract: packages/openapi/openapi.yaml ChatRequest schema, and the POST /api/chat row in docs/api.md
+
+Follow-ups fail for two separate reasons:
+1. "just show me the results of them" is a new request. The model never sees the previous question, and similarity search embeds only that vague sentence.
+2. "what are the results today" does not know the calendar date, and a typed "today" does not apply the date window the Date dropdown already uses.
+
+O — Objective
+Make follow-up questions and the words "today" / "yesterday" work, with the smallest change.
+
+1. Each POST /api/chat may include an optional history: the previous user and assistant texts already on screen, oldest first, not including the new question. Cap what you send and what you use (last 6 turns is enough). Do not send citations.
+2. In ChatService, before similaritySearch, rewrite the latest question into one standalone search string using that history. Example: history question "what are the results today" plus new question "just show me the results of them" becomes a search like "results ingested today". Embed and search that rewritten string. If history is empty, search the original question and do not call the chat model for a rewrite.
+3. The answer prompt must include, in order: the system instruction, the prior turns, then one user message with CONTEXT chunks plus the user's original question (not the rewritten search string).
+4. Put the server's current local date in the system prompt (for example "Today is 2026-10-03") so the model can compare each chunk's inserted_at.
+5. If the original question or the rewritten search string refers to "today" or "yesterday", set fromIso/toIso to that local calendar day when the client did not already send those bounds. Reuse the same window idea as ChatPage.todayIsoRange(). An explicit fromIso/toIso from the Date dropdown still wins.
+6. Clear still starts a new thread because the UI sends no history after messages is emptied.
+7. Update the ChatRequest schema in packages/openapi/openapi.yaml and the POST /api/chat note in docs/api.md.
+
+O — Output
+- ChatPage sends history from its existing messages state.
+- ChatService rewrites the search query only when history is non-empty, then answers with history plus retrieved chunks.
+- Typed "today" and "yesterday" restrict retrieval to that local day unless the user already set a date filter.
+- A short summary of files changed and how to verify:
+  - "Summarize the latest run of model M1" still answers from chunks.
+  - Then "what are the results today" uses today's inserted_at window.
+  - Then "just show me the results of them" still refers to that previous question and returns those chunks instead of saying the context has no information.
+  - Clear, then a vague follow-up, does not reuse the old thread.
+
+S — Style
+Precise and local. Extend ChatRequest, ChatRequestBody, and ChatService.ask. Do not add a new chat endpoint, a database session, or a second chat widget.
+
+T — Tone
+Direct and implementation-focused.
+
+A — Audience
+A coding agent that will edit this repository and must not invent a new RAG pipeline.
+
+R — Response constraints
+Do not:
+- Change the embedding model, chat model, Ollama config, or vector size
+- Change ingest, the vectorization worker, reindex, or result submission rules
+- Store chat history in Postgres
+- Remove the Model / Version / Date filters
+- Clear the thread on tab change
+- Put secrets in git
+
+Done when a follow-up pronoun uses the previous turns, and "today" / "yesterday" in the question limit search to that local day.
+
+
+------------------------------------------------------------------------------------------------
+
+
+so how many context it takes whole of the text or only the last 6?
+
+
+------------------------------------------------------------------------------------------------
+
+i want all of the chat to be feed in the current session of the user not only 6 converstion 
+
+------------------------------------------------------------------------------------------------
+
+is there any trade of using this all converstation rather than only 6
+
+------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------------

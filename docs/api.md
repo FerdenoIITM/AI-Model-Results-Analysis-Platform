@@ -33,6 +33,6 @@ Source of truth: [`packages/openapi/openapi.yaml`](../packages/openapi/openapi.y
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| POST | `/api/chat` | Bearer | Body: `{ question, modelName?, version?, iterationId?, fromIso?, toIso? }`. Returns `{ answer, citations }`. |
+| POST | `/api/chat` | Bearer | Body: `{ question, modelName?, version?, iterationId?, fromIso?, toIso?, history? }`. `history` is every user/assistant text in the current browser session so follow-ups like "them" resolve. A typed "today" or "yesterday" limits retrieval to that local day unless `fromIso`/`toIso` are already set. Returns `{ answer, citations }`. |
 
 Implementation: `apps/api` (Java Spring Boot + Spring AI 1.0 + Ollama + pgvector).

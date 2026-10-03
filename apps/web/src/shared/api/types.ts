@@ -45,6 +45,11 @@ export interface ChatResponse {
   citations: ChatCitation[];
 }
 
+export interface ChatTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface ChatRequest {
   question: string;
   modelName?: string;
@@ -52,6 +57,7 @@ export interface ChatRequest {
   iterationId?: string;
   fromIso?: string;
   toIso?: string;
+  history?: ChatTurn[];
 }
 
 export interface CreateResultRequest {

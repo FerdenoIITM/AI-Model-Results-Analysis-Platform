@@ -3,14 +3,19 @@ package com.amrap.application.query;
 import com.amrap.application.common.AppException;
 import com.amrap.application.rag.RagProperties;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -42,13 +47,24 @@ public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
+    private static final int MAX_TURN_CHARS = 2000;
+    private static final Pattern TODAY = Pattern.compile("\\btoday\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern YESTERDAY = Pattern.compile("\\byesterday\\b", Pattern.CASE_INSENSITIVE);
+
     private static final String SYSTEM_PROMPT = """
             You are AMRAP's analytics assistant. Answer the user's question strictly from
             the CONTEXT chunks below. Each chunk comes from a stored AI model result and is
             labelled with its result id, model name, version, and iteration. If the context
             does not contain enough information to answer, say so plainly — do not invent
             numbers. When you cite a value, mention the model, version, and iteration it
-            came from.
+            came from. Earlier turns are only for resolving follow-ups such as "them".
+            """;
+
+    private static final String REWRITE_PROMPT = """
+            Rewrite the latest user question into one standalone search sentence.
+            Resolve pronouns such as them, those, and it using the conversation.
+            Keep words such as today or yesterday when they still apply.
+            Return only that search sentence, with no quotes.
             """;
 
     private final RagProperties properties;
@@ -75,11 +91,17 @@ public class ChatService {
                     List.of());
         }
 
+        List<ChatTurn> history = recentHistory(request.history());
+        String searchQuery = history.isEmpty()
+                ? request.question().trim()
+                : rewriteQuery(request.question().trim(), history);
+        ChatRequest scoped = withRelativeDay(request, searchQuery);
+
         SearchRequest.Builder builder = SearchRequest.builder()
-                .query(request.question())
+                .query(searchQuery)
                 .topK(properties.getTopK());
 
-        Filter.Expression filter = buildFilter(request);
+        Filter.Expression filter = buildFilter(scoped);
         if (filter != null) {
             builder.filterExpression(filter);
         }
@@ -101,9 +123,16 @@ public class ChatService {
         }
 
         String context = renderContext(hits);
-        List<Message> messages = List.of(
-                new SystemMessage(SYSTEM_PROMPT),
-                new UserMessage("CONTEXT:\n" + context + "\n\nQUESTION: " + request.question()));
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(SYSTEM_PROMPT + "\nToday is " + LocalDate.now(ZoneId.systemDefault()) + "."));
+        for (ChatTurn turn : history) {
+            if ("assistant".equalsIgnoreCase(turn.role())) {
+                messages.add(new AssistantMessage(turn.text()));
+            } else {
+                messages.add(new UserMessage(turn.text()));
+            }
+        }
+        messages.add(new UserMessage("CONTEXT:\n" + context + "\n\nQUESTION: " + request.question()));
 
         String answer;
         try {
@@ -117,6 +146,96 @@ public class ChatService {
         }
 
         return new ChatResponse(answer, toCitations(hits));
+    }
+
+    private List<ChatTurn> recentHistory(List<ChatTurn> history) {
+        if (history == null || history.isEmpty()) {
+            return List.of();
+        }
+        List<ChatTurn> kept = new ArrayList<>();
+        for (ChatTurn turn : history) {
+            if (turn == null || turn.text() == null || turn.text().isBlank()) {
+                continue;
+            }
+            String role = turn.role() == null ? "" : turn.role().trim().toLowerCase();
+            if (!role.equals("user") && !role.equals("assistant")) {
+                continue;
+            }
+            String text = turn.text().trim();
+            if (text.length() > MAX_TURN_CHARS) {
+                text = text.substring(0, MAX_TURN_CHARS);
+            }
+            kept.add(new ChatTurn(role, text));
+        }
+        return List.copyOf(kept);
+    }
+
+    private String rewriteQuery(String question, List<ChatTurn> history) {
+        StringBuilder transcript = new StringBuilder();
+        for (ChatTurn turn : history) {
+            transcript.append(turn.role()).append(": ").append(turn.text()).append('\n');
+        }
+        transcript.append("latest: ").append(question);
+        try {
+            String rewritten = ChatClient.builder(chatModel).build()
+                    .prompt(new Prompt(List.of(
+                            new SystemMessage(REWRITE_PROMPT),
+                            new UserMessage(transcript.toString()))))
+                    .call()
+                    .content();
+            if (rewritten == null || rewritten.isBlank()) {
+                return question;
+            }
+            String line = rewritten.trim();
+            int newline = line.indexOf('\n');
+            if (newline > 0) {
+                line = line.substring(0, newline).trim();
+            }
+            if (line.length() > 2 && line.startsWith("\"") && line.endsWith("\"")) {
+                line = line.substring(1, line.length() - 1).trim();
+            }
+            return line.isBlank() ? question : line;
+        } catch (Exception ex) {
+            log.warn("Query rewrite failed, searching the original question: {}", ex.getMessage());
+            return question;
+        }
+    }
+
+    private ChatRequest withRelativeDay(ChatRequest request, String searchQuery) {
+        if (notBlank(request.fromIso()) || notBlank(request.toIso())) {
+            return request;
+        }
+        LocalDate day = relativeDay(request.question());
+        if (day == null) {
+            day = relativeDay(searchQuery);
+        }
+        if (day == null) {
+            return request;
+        }
+        ZoneId zone = ZoneId.systemDefault();
+        ZonedDateTime start = day.atStartOfDay(zone);
+        return new ChatRequest(
+                request.question(),
+                request.modelName(),
+                request.version(),
+                request.iterationId(),
+                start.toInstant().toString(),
+                start.plusDays(1).toInstant().toString(),
+                request.history());
+    }
+
+    private static LocalDate relativeDay(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        ZoneId zone = ZoneId.systemDefault();
+        if (YESTERDAY.matcher(text).find()) {
+            return LocalDate.now(zone).minusDays(1);
+        }
+        if (TODAY.matcher(text).find()) {
+            return LocalDate.now(zone);
+        }
+        return null;
     }
 
     private Filter.Expression buildFilter(ChatRequest r) {

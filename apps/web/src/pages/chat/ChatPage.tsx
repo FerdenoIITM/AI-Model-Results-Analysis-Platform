@@ -88,6 +88,7 @@ export function ChatPage() {
     setSending(true);
 
     const range = dateFilter === "today" ? todayIsoRange() : null;
+    const history = messages.map((m) => ({ role: m.role, text: m.text }));
     try {
       const res = await sendChat(token, {
         question: userMsg.text,
@@ -95,6 +96,7 @@ export function ChatPage() {
         version: versionFilter.trim() || undefined,
         fromIso: range?.from,
         toIso: range?.to,
+        history: history.length > 0 ? history : undefined,
       });
       setMessages((prev) => [
         ...prev,

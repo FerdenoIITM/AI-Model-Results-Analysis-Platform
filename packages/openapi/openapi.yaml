@@ -411,6 +411,24 @@ components:
           type: string
           format: date-time
           nullable: true
+        history:
+          type: array
+          nullable: true
+          description: >
+            Every previous user and assistant text in the current browser session, oldest first,
+            not including the new question. Omit after the conversation is cleared.
+          items:
+            $ref: '#/components/schemas/ChatTurn'
+    ChatTurn:
+      type: object
+      required: [role, text]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        text:
+          type: string
+          maxLength: 2000
     ChatCitation:
       type: object
       properties:

@@ -30,7 +30,8 @@ public class ChatController {
                 body.version(),
                 body.iterationId(),
                 body.fromIso(),
-                body.toIso()));
+                body.toIso(),
+                body.history()));
         return ResponseEntity.ok(response);
     }
 }

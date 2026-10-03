@@ -1,5 +1,7 @@
 package com.amrap.application.query;
 
+import java.util.List;
+
 /**
  * Natural-language query input.
  *
@@ -11,6 +13,7 @@ package com.amrap.application.query;
  * @param iterationId optional exact-match filter on {@code iteration_id}
  * @param fromIso optional ISO-8601 lower bound on {@code inserted_at}
  * @param toIso optional ISO-8601 upper bound on {@code inserted_at}
+ * @param history optional earlier turns, oldest first, not including {@code question}
  */
 public record ChatRequest(
         String question,
@@ -18,5 +21,6 @@ public record ChatRequest(
         String version,
         String iterationId,
         String fromIso,
-        String toIso) {
+        String toIso,
+        List<ChatTurn> history) {
 }
