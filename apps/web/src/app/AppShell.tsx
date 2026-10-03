@@ -1,9 +1,11 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/AuthContext";
+import { ChatPage } from "../pages/chat/ChatPage";
 
 export function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const canManageUsers = user?.role === "superadmin" || user?.role === "admin";
 
   return (
@@ -35,6 +37,9 @@ export function AppShell() {
         </div>
       </header>
       <main className="content">
+        <div hidden={location.pathname !== "/chat"}>
+          <ChatPage />
+        </div>
         <Outlet />
       </main>
     </div>

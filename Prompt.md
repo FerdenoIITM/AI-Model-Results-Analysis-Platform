@@ -905,3 +905,128 @@ and give me the plan, how to implement this using RAG
 
 Is the runtime and the model is tightly coupled or losely coupled 
 because if i want to change the model or embedding or runtime i should be able to plug and play it should be versatile is it like that 
+
+------------------------------------------------------------------------------------------------
+
+Questions:
+
+Explain my RAG system's model-swapping and data-flow architecture clearly and practically.
+
+I want to understand these exact questions:
+
+1. If my code allows changing only the chat model through configuration, and my database already contains embeddings, can I use any chat model, or does the chat model need to match the embedding model?
+
+2. Explain the complete RAG data flow:
+   User query → embedding model → vector database → retrieved data/context → chat model → final answer.
+   Clearly explain who generates the embeddings, who retrieves the data, who gives the context to the chat model, and what the chat model actually receives.
+
+3. Why does changing the embedding model usually require re-embedding the existing data in the database?
+   Explain this using embedding dimensions, vector space, and similarity search with a simple example.
+
+4. Why does changing the chat model usually NOT require re-embedding the database?
+   Explain the difference between an embedding model and a chat/generation model.
+
+5. Suppose I currently use:
+   - Chat model: Llama
+   - Runtime: Ollama
+   - Embedding model: some embedding model
+
+   If I replace Llama with Qwen or DeepSeek:
+   - Is changing the configuration enough?
+   - When would code changes be required?
+   - What API/interface must the new model support?
+
+6. If I replace Ollama with OpenAI:
+   - Why might changing only the configuration NOT be enough?
+   - What is the difference between changing the model and changing the runtime/provider?
+   - Explain what changes at the API/client layer.
+   - Show what an abstraction layer such as ChatService/LLM interface does and why it makes provider switching easier.
+
+7. Clearly distinguish these three concepts:
+   - Chat/LLM model
+   - Embedding model
+   - LLM runtime/provider (Ollama, OpenAI API, etc.)
+
+8. Explain which changes require:
+   - Configuration change only
+   - Configuration + adapter/client code
+   - Re-embedding the database
+   - Changes to the RAG pipeline
+
+9. Give me a concrete example architecture using:
+   User → ChatService → Retriever → Vector DB → EmbeddingService → LLM
+   and show where Llama/Qwen/DeepSeek, Ollama/OpenAI, and the embedding model fit.
+
+10. Finally, give me a simple compatibility matrix showing:
+    Change being made | Re-embed required? | Code change required? | Config change required? | Why?
+
+Use simple technical language and concrete examples. Do not give generic RAG theory. Focus specifically on understanding what can be swapped independently and why.
+
+
+------------------------------------------------------------------------------------------------
+
+
+Modify only the chat tab's state/memory persistence behavior.
+
+### Required behavior
+
+When the user is having a conversation in the Chat window:
+
+- Preserve the complete current conversation when switching from the **Chat** tab to another tab such as **Results**.
+- When the user returns from **Results** to **Chat**, the previous conversation must still be present exactly as it was.
+- Preserve:
+  - All previous user messages
+  - All chatbot responses
+  - Current conversation/session state
+  - Any text currently entered in the chat input, if applicable
+  - Scroll position/state where practical
+- The chat state must remain available for the lifetime of the current application/session unless the user explicitly starts a new chat or clears the conversation.
+- Switching tabs must NOT create a new chat session or reset/reinitialize the existing chat state.
+
+### Negative requirements — DO NOT change anything else
+
+**Do NOT:**
+
+- Do not change the existing Chat UI design.
+- Do not change the Results tab functionality.
+- Do not change the behavior of any other tabs.
+- Do not modify the existing RAG pipeline.
+- Do not modify the embedding model.
+- Do not modify the chat/LLM model.
+- Do not modify API endpoints or backend logic unless absolutely required to preserve the existing chat state.
+- Do not change database behavior.
+- Do not change conversation formatting.
+- Do not change message ordering.
+- Do not change the existing send-message functionality.
+- Do not change streaming behavior.
+- Do not change error handling.
+- Do not introduce a new chat window or duplicate chat instance.
+- Do not reload/recreate the Chat widget when switching tabs.
+- Do not clear the chat history during tab changes.
+- Do not reinitialize the chat/session object unnecessarily.
+- Do not reset the model, conversation context, or message history when the Chat tab becomes active again.
+- Do not remove any existing functionality.
+- Do not refactor unrelated code.
+- Do not make cosmetic or architectural changes that are unrelated to this issue.
+
+### Important constraint
+
+Make the **smallest possible change** required to persist the existing chat state across tab switches.
+
+The expected result is:
+
+```text
+Chat
+  ↓
+User has conversation
+  ↓
+Switch to Results
+  ↓
+Results
+  ↓
+Switch back to Chat
+  ↓
+EXACT SAME CONVERSATION IS STILL THERE
+```
+
+The only problem being fixed is that the Chat conversation/memory currently gets cleared when switching tabs. Everything else must remain unchanged.

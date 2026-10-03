@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
 import { sendChat } from "../../shared/api/client";
 import type { ChatCitation } from "../../shared/api/types";
@@ -39,6 +40,8 @@ function todayIsoRange(): { from: string; to: string } {
 
 export function ChatPage() {
   const { token } = useAuth();
+  const location = useLocation();
+  const chatVisible = location.pathname === "/chat";
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
@@ -46,12 +49,30 @@ export function ChatPage() {
   const [versionFilter, setVersionFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<"all" | "today">("all");
   const listRef = useRef<HTMLDivElement>(null);
+  const catchUpScroll = useRef(false);
 
   useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+    const el = listRef.current;
+    if (!el) return;
+    // A hidden list has no layout; assigning scrollTop would clamp it to 0.
+    if (!chatVisible || el.getClientRects().length === 0) {
+      catchUpScroll.current = true;
+      return;
     }
+    el.scrollTop = el.scrollHeight;
+    catchUpScroll.current = false;
+    // chatVisible is read from this render. Re-running on visibility would
+    // jump to the bottom every time the user returns to Chat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
+
+  useEffect(() => {
+    if (!chatVisible || !catchUpScroll.current) return;
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    catchUpScroll.current = false;
+  }, [chatVisible]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
