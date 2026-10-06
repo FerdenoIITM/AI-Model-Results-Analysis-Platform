@@ -55,7 +55,7 @@ make up
 
 Rebuilds Docker images from Dockerfiles. Use this for a production-like check, not for every save.
 
-- Web: http://localhost:5173  
+- Web: http://localhost:5173 — other machines on the network use `http://<this-laptop-ip>:5173`. The site forwards `/api` to the API, so the browser stays on that one address.
 - API: http://localhost:8080/api  
 
 From Docker, the API reaches host Postgres via `host.docker.internal` (set in compose).
