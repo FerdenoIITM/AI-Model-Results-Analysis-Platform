@@ -22,12 +22,32 @@ export interface ResultSummary {
   modelName: string;
   version: string;
   iterationId: string;
+  category: string | null;
+  subCategory: string | null;
+  confidenceAccuracy: number | null;
+  sensitivity: number | null;
+  specificity: number | null;
+  f1Score: number | null;
+  recall: number | null;
+  precision: number | null;
   jsonPath: string;
   sizeBytes: number;
   insertedAt: string;
   vectorized: boolean;
   vectorizedAt: string | null;
   createdBy: string | null;
+}
+
+export interface ResultPage {
+  results: ResultSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface FilterOptions {
+  categories: string[];
+  subCategories: string[];
 }
 
 export interface ChatCitation {
@@ -63,7 +83,14 @@ export interface ChatRequest {
 export interface CreateResultRequest {
   modelName: string;
   version: string;
-  iterationId: string;
+  category?: string | null;
+  subCategory?: string | null;
+  confidenceAccuracy?: number | null;
+  sensitivity?: number | null;
+  specificity?: number | null;
+  f1Score?: number | null;
+  recall?: number | null;
+  precision?: number | null;
   payload: unknown;
 }
 

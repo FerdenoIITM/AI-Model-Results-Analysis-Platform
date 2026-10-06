@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class IngestResultService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestResultService.class);
+    private static final DateTimeFormatter ITERATION_ID = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final DateTimeFormatter YEAR = DateTimeFormatter.ofPattern("yyyy");
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MM");
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd");
@@ -41,6 +43,14 @@ public class IngestResultService {
     @Transactional
     public Result ingest(IngestResultCommand cmd, UUID submittedBy) {
         validate(cmd);
+        String category = ResultConstraints.optionalLabel("category", cmd.category());
+        String subCategory = ResultConstraints.optionalLabel("subCategory", cmd.subCategory());
+        ResultConstraints.optionalPercentage("confidenceAccuracy", cmd.confidenceAccuracy());
+        ResultConstraints.optionalPercentage("sensitivity", cmd.sensitivity());
+        ResultConstraints.optionalPercentage("specificity", cmd.specificity());
+        ResultConstraints.optionalPercentage("f1Score", cmd.f1Score());
+        ResultConstraints.optionalPercentage("recall", cmd.recall());
+        ResultConstraints.optionalPercentage("precision", cmd.precision());
 
         UUID id = UUID.randomUUID();
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
@@ -60,7 +70,15 @@ public class IngestResultService {
             result.setId(id);
             result.setModelName(cmd.modelName().trim());
             result.setVersion(cmd.version().trim());
-            result.setIterationId(cmd.iterationId().trim());
+            result.setIterationId(ITERATION_ID.format(ZonedDateTime.now(ZoneId.systemDefault())));
+            result.setCategory(category);
+            result.setSubCategory(subCategory);
+            result.setConfidenceAccuracy(cmd.confidenceAccuracy());
+            result.setSensitivity(cmd.sensitivity());
+            result.setSpecificity(cmd.specificity());
+            result.setF1Score(cmd.f1Score());
+            result.setRecall(cmd.recall());
+            result.setPrecision(cmd.precision());
             result.setJsonPath(relativePath);
             result.setSizeBytes(bytes.length);
             result.setContentHash(sha256Hex(bytes));
@@ -93,9 +111,6 @@ public class IngestResultService {
         }
         if (cmd.version() == null || cmd.version().isBlank()) {
             throw new AppException(400, "version is required");
-        }
-        if (cmd.iterationId() == null || cmd.iterationId().isBlank()) {
-            throw new AppException(400, "iterationId is required");
         }
         if (cmd.rawJson() == null || cmd.rawJson().isBlank()) {
             throw new AppException(400, "payload JSON is required");

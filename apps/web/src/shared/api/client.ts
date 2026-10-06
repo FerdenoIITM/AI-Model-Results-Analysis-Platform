@@ -2,8 +2,10 @@ import type {
   ChatRequest,
   ChatResponse,
   CreateResultRequest,
+  FilterOptions,
   LoginResponse,
   ReindexResponse,
+  ResultPage,
   ResultSummary,
   UserRole,
   UserSummary,
@@ -122,9 +124,35 @@ export async function deleteUser(token: string, id: string): Promise<void> {
 
 // --- Results (RAG) ---
 
-export async function listResults(token: string, limit = 100): Promise<ResultSummary[]> {
-  const res = await fetch(`${API_BASE}/results?limit=${limit}`, {
+export async function listResults(
+  token: string,
+  params: URLSearchParams,
+  signal?: AbortSignal,
+): Promise<ResultPage> {
+  const qs = params.toString();
+  const res = await fetch(`${API_BASE}/results${qs ? `?${qs}` : ""}`, {
     headers: authHeaders(token),
+    signal,
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.json();
+}
+
+export async function fetchFilterOptions(
+  token: string,
+  categories: string[],
+  signal?: AbortSignal,
+): Promise<FilterOptions> {
+  const params = new URLSearchParams();
+  for (const category of categories) {
+    params.append("category", category);
+  }
+  const qs = params.toString();
+  const res = await fetch(`${API_BASE}/results/filter-options${qs ? `?${qs}` : ""}`, {
+    headers: authHeaders(token),
+    signal,
   });
   if (!res.ok) {
     throw new Error(await parseError(res));

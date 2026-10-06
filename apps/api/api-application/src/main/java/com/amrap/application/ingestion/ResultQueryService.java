@@ -3,6 +3,8 @@ package com.amrap.application.ingestion;
 import com.amrap.application.common.AppException;
 import com.amrap.application.rag.RagProperties;
 import com.amrap.domain.result.Result;
+import com.amrap.domain.result.ResultFilter;
+import com.amrap.domain.result.ResultPage;
 import com.amrap.persistence.result.ResultRepository;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -27,9 +29,17 @@ public class ResultQueryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Result> listRecent(int limit) {
-        int safe = Math.max(1, Math.min(limit, 500));
-        return resultRepository.findAllOrderByInsertedAtDesc(safe);
+    public ResultPage search(ResultFilter filter) {
+        return resultRepository.search(filter);
+    }
+
+    @Transactional(readOnly = true)
+    public FilterOptions filterOptions(List<String> categories) {
+        List<String> allCategories = resultRepository.findDistinctCategories();
+        List<String> subCategories = categories.isEmpty()
+                ? resultRepository.findDistinctSubCategories()
+                : resultRepository.findDistinctSubCategoriesByCategories(categories);
+        return new FilterOptions(allCategories, subCategories);
     }
 
     @Transactional(readOnly = true)

@@ -65,7 +65,7 @@ One row per ingested AI model result. The raw JSON lives on disk at
 | `id` | `UUID` | Primary key |
 | `model_name` | `VARCHAR(255)` | Logical model name (e.g. `M1`) |
 | `version` | `VARCHAR(100)` | Model version string (e.g. `1.0.0`) |
-| `iteration_id` | `VARCHAR(255)` | Caller-supplied iteration id |
+| `iteration_id` | `VARCHAR(255)` | Server-assigned local timestamp `yyyyMMddHHmmss` (for example `20261006135322`). Older rows keep the id they were stored with. |
 | `json_path` | `TEXT` | Relative path under storage dir |
 | `size_bytes` | `BIGINT` | Payload size |
 | `content_hash` | `VARCHAR(128)` | SHA-256 of file bytes |
@@ -73,6 +73,33 @@ One row per ingested AI model result. The raw JSON lives on disk at
 | `is_vectorized` | `BOOLEAN` | `FALSE` until worker embeds; flip to `FALSE` to force reindex |
 | `vectorized_at` | `TIMESTAMPTZ` | When worker last embedded |
 | `created_by` | `UUID` FK → `users.id` | NULL for machine ingest with API key |
+
+### V4 — filter columns on `results`
+
+See [`infra/db/migrations/V4__result_metrics.sql`](../infra/db/migrations/V4__result_metrics.sql).
+
+Columns are nullable so rows ingested before V4 stay valid. They are not backfilled. New submissions may omit them; the website form sends them.
+
+Metrics are percentage points in `[0, 100]` (`97.5` means 97.5%), stored as `DOUBLE PRECISION`. The same number is used in the database, API, and UI. The free-form payload field `confidence` is unrelated and stays inside the JSON file.
+
+| Column | Type | Null | Constraint |
+|--------|------|------|------------|
+| `category` | `VARCHAR(120)` | yes | null, or trimmed and non-empty |
+| `sub_category` | `VARCHAR(120)` | yes | same |
+| `confidence_accuracy` | `DOUBLE PRECISION` | yes | null, or `0 <= value <= 100` |
+| `sensitivity` | `DOUBLE PRECISION` | yes | same |
+| `specificity` | `DOUBLE PRECISION` | yes | same |
+| `f1_score` | `DOUBLE PRECISION` | yes | same |
+| `recall` | `DOUBLE PRECISION` | yes | same |
+| `precision` | `DOUBLE PRECISION` | yes | same |
+
+`category` and `sub_category` stay strings on the row. They are attributes of a submission, not a separate taxonomy.
+
+Indexes:
+
+- `(category, sub_category)` where `category` is not null — category filters, and category plus subcategory
+- `(sub_category)` where not null — subcategory without a category
+- one btree per metric where that metric is not null — independent range filters, combined with bitmap AND
 
 ### Entity: result_chunks (Spring AI pgvector store)
 
@@ -97,7 +124,7 @@ Design notes:
 |--------|---------|
 | Model | Registered AI/ML model metadata |
 | Experiment | A run/configuration of a model |
-| Metric | Structured metrics attached to a result (populate once we know the schema) |
+| Metric | Now stored on `results` (V4). No separate metric table. |
 
 ## Bootstrap
 

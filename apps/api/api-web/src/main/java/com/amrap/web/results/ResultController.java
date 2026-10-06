@@ -3,6 +3,7 @@ package com.amrap.web.results;
 import com.amrap.application.common.AppException;
 import com.amrap.application.ingestion.IngestResultCommand;
 import com.amrap.application.ingestion.IngestResultService;
+import com.amrap.application.ingestion.ResultFilterParser;
 import com.amrap.application.ingestion.ResultQueryService;
 import com.amrap.application.rag.ReindexService;
 import com.amrap.domain.result.Result;
@@ -11,8 +12,8 @@ import com.amrap.security.AuthenticatedUser;
 import com.amrap.security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -66,20 +66,31 @@ public class ResultController {
                 new IngestResultCommand(
                         request.modelName(),
                         request.version(),
-                        request.iterationId(),
-                        rawJson),
+                        rawJson,
+                        request.category(),
+                        request.subCategory(),
+                        request.confidenceAccuracy(),
+                        request.sensitivity(),
+                        request.specificity(),
+                        request.f1Score(),
+                        request.recall(),
+                        request.precision()),
                 actor.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ResultSummary.from(saved));
     }
 
     @GetMapping
-    public ResponseEntity<List<ResultSummary>> list(
-            @RequestParam(name = "limit", defaultValue = "100") int limit) {
+    public ResponseEntity<ResultPageResponse> list(HttpServletRequest request) {
         SecurityUtils.requireCurrentUser();
-        List<ResultSummary> items = queryService.listRecent(limit).stream()
-                .map(ResultSummary::from)
-                .toList();
-        return ResponseEntity.ok(items);
+        return ResponseEntity.ok(ResultPageResponse.from(
+                queryService.search(ResultFilterParser.parseList(request.getParameterMap()))));
+    }
+
+    @GetMapping("/filter-options")
+    public ResponseEntity<FilterOptionsResponse> filterOptions(HttpServletRequest request) {
+        SecurityUtils.requireCurrentUser();
+        return ResponseEntity.ok(FilterOptionsResponse.from(
+                queryService.filterOptions(ResultFilterParser.parseCategories(request.getParameterMap()))));
     }
 
     @GetMapping("/{id}")

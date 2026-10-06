@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: AI Model Results Analysis Platform API
-  version: 0.3.0
-  description: Auth, User Management, Result Ingestion + RAG Chat (Milestone 3)
+  version: 0.4.0
+  description: Auth, User Management, Result Ingestion, Filtering, and RAG Chat
 servers:
   - url: http://localhost:8080/api
     description: Local API
@@ -124,27 +124,97 @@ paths:
 
   /results:
     get:
-      summary: List recent ingested results (newest first)
+      summary: List ingested results
+      description: |
+        Filters, then sorts, then paginates in the database. Unknown query keys are rejected.
+        Category and subcategory match exactly and may be repeated. Numeric filters use a suffix
+        on the camelCase field: Eq, Gt, Gte, Lt, Lte. A range is a lower bound plus an upper bound
+        on the same field. Metrics are percentage points from 0 to 100.
+        Sort is a whitelisted field with an optional leading `-` for descending. Default sort is
+        `-insertedAt`. Null metric values sort last.
       security:
         - bearerAuth: []
       parameters:
-        - name: limit
+        - $ref: '#/components/parameters/CategoryQuery'
+        - $ref: '#/components/parameters/SubCategoryQuery'
+        - name: modelName
           in: query
-          required: false
+          schema:
+            type: string
+            maxLength: 255
+          description: Case-insensitive substring match
+        - name: version
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+          description: Case-insensitive substring match
+        - name: vectorized
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: page
+          in: query
           schema:
             type: integer
-            default: 100
             minimum: 1
-            maximum: 500
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: "-insertedAt"
+          description: >
+            Whitelist: insertedAt, modelName, version, iterationId, category, subCategory,
+            confidenceAccuracy, sensitivity, specificity, f1Score, recall, precision.
+            Prefix `-` for descending.
+        - $ref: '#/components/parameters/ConfidenceAccuracyEq'
+        - $ref: '#/components/parameters/ConfidenceAccuracyGt'
+        - $ref: '#/components/parameters/ConfidenceAccuracyGte'
+        - $ref: '#/components/parameters/ConfidenceAccuracyLt'
+        - $ref: '#/components/parameters/ConfidenceAccuracyLte'
+        - $ref: '#/components/parameters/SensitivityEq'
+        - $ref: '#/components/parameters/SensitivityGt'
+        - $ref: '#/components/parameters/SensitivityGte'
+        - $ref: '#/components/parameters/SensitivityLt'
+        - $ref: '#/components/parameters/SensitivityLte'
+        - $ref: '#/components/parameters/SpecificityEq'
+        - $ref: '#/components/parameters/SpecificityGt'
+        - $ref: '#/components/parameters/SpecificityGte'
+        - $ref: '#/components/parameters/SpecificityLt'
+        - $ref: '#/components/parameters/SpecificityLte'
+        - $ref: '#/components/parameters/F1ScoreEq'
+        - $ref: '#/components/parameters/F1ScoreGt'
+        - $ref: '#/components/parameters/F1ScoreGte'
+        - $ref: '#/components/parameters/F1ScoreLt'
+        - $ref: '#/components/parameters/F1ScoreLte'
+        - $ref: '#/components/parameters/RecallEq'
+        - $ref: '#/components/parameters/RecallGt'
+        - $ref: '#/components/parameters/RecallGte'
+        - $ref: '#/components/parameters/RecallLt'
+        - $ref: '#/components/parameters/RecallLte'
+        - $ref: '#/components/parameters/PrecisionEq'
+        - $ref: '#/components/parameters/PrecisionGt'
+        - $ref: '#/components/parameters/PrecisionGte'
+        - $ref: '#/components/parameters/PrecisionLt'
+        - $ref: '#/components/parameters/PrecisionLte'
       responses:
         '200':
-          description: Results list
+          description: Filtered page
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ResultSummary'
+                $ref: '#/components/schemas/ResultPage'
+        '400':
+          description: Invalid filter, sort, or page
     post:
       summary: Ingest a new model result (JSON payload is stored on disk)
       description: |
@@ -153,6 +223,8 @@ paths:
         Admin and member JWTs receive 403. The `payload` field is stored verbatim as a
         JSON file; metadata goes into the `results` table with `is_vectorized=false`.
         A background worker will chunk + embed the content and flip the flag to `true`.
+        `iterationId` is assigned by the server as local `yyyyMMddHHmmss` (for example `20261006135322`).
+        A client-supplied `iterationId` is ignored.
       security:
         - bearerAuth: []
         - ingestKey: []
@@ -169,8 +241,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResultSummary'
+        '400':
+          description: Invalid metadata or metric value
         '403':
           description: Authenticated user is not superadmin
+
+  /results/filter-options:
+    get:
+      summary: Distinct category and subcategory values for the filter UI
+      description: |
+        `categories` is always the full distinct set. Repeat `category` to limit `subCategories`
+        to values that occur with those categories. Omit `category` to list every subcategory.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryQuery'
+      responses:
+        '200':
+          description: Filter choices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterOptions'
+        '400':
+          description: Invalid category or unsupported query key
 
   /results/{id}:
     get:
@@ -251,6 +345,149 @@ paths:
                 $ref: '#/components/schemas/ChatResponse'
 
 components:
+  parameters:
+    CategoryQuery:
+      name: category
+      in: query
+      description: Repeat for more than one category
+      schema:
+        type: array
+        items:
+          type: string
+          maxLength: 120
+      style: form
+      explode: true
+    SubCategoryQuery:
+      name: subCategory
+      in: query
+      description: Repeat for more than one subcategory
+      schema:
+        type: array
+        items:
+          type: string
+          maxLength: 120
+      style: form
+      explode: true
+    ConfidenceAccuracyEq:
+      name: confidenceAccuracyEq
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    ConfidenceAccuracyGt:
+      name: confidenceAccuracyGt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    ConfidenceAccuracyGte:
+      name: confidenceAccuracyGte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    ConfidenceAccuracyLt:
+      name: confidenceAccuracyLt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    ConfidenceAccuracyLte:
+      name: confidenceAccuracyLte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SensitivityEq:
+      name: sensitivityEq
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SensitivityGt:
+      name: sensitivityGt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SensitivityGte:
+      name: sensitivityGte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SensitivityLt:
+      name: sensitivityLt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SensitivityLte:
+      name: sensitivityLte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SpecificityEq:
+      name: specificityEq
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SpecificityGt:
+      name: specificityGt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SpecificityGte:
+      name: specificityGte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SpecificityLt:
+      name: specificityLt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    SpecificityLte:
+      name: specificityLte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    F1ScoreEq:
+      name: f1ScoreEq
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    F1ScoreGt:
+      name: f1ScoreGt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    F1ScoreGte:
+      name: f1ScoreGte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    F1ScoreLt:
+      name: f1ScoreLt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    F1ScoreLte:
+      name: f1ScoreLte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    RecallEq:
+      name: recallEq
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    RecallGt:
+      name: recallGt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    RecallGte:
+      name: recallGte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    RecallLt:
+      name: recallLt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    RecallLte:
+      name: recallLte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    PrecisionEq:
+      name: precisionEq
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    PrecisionGt:
+      name: precisionGt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    PrecisionGte:
+      name: precisionGte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    PrecisionLt:
+      name: precisionLt
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
+    PrecisionLte:
+      name: precisionLte
+      in: query
+      schema: { type: number, minimum: 0, maximum: 100 }
   securitySchemes:
     bearerAuth:
       type: http
@@ -350,6 +587,53 @@ components:
           type: string
         iterationId:
           type: string
+          description: Server-assigned local timestamp, yyyyMMddHHmmss
+          example: "20261006135322"
+        category:
+          type: string
+          nullable: true
+          maxLength: 120
+        subCategory:
+          type: string
+          nullable: true
+          maxLength: 120
+        confidenceAccuracy:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Percentage points, not a 0-1 fraction
+        sensitivity:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        specificity:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        f1Score:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        recall:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        precision:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
         jsonPath:
           type: string
           description: Relative path under RESULTS_STORAGE_DIR
@@ -369,9 +653,39 @@ components:
           type: string
           format: uuid
           nullable: true
+    ResultPage:
+      type: object
+      required: [results, total, page, pageSize]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultSummary'
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+    FilterOptions:
+      type: object
+      required: [categories, subCategories]
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+        subCategories:
+          type: array
+          items:
+            type: string
     CreateResultRequest:
       type: object
-      required: [modelName, version, iterationId, payload]
+      required: [modelName, version, payload]
       properties:
         modelName:
           type: string
@@ -379,9 +693,50 @@ components:
         version:
           type: string
           maxLength: 100
-        iterationId:
+        category:
           type: string
-          maxLength: 255
+          nullable: true
+          maxLength: 120
+        subCategory:
+          type: string
+          nullable: true
+          maxLength: 120
+        confidenceAccuracy:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        sensitivity:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        specificity:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        f1Score:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        recall:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
+        precision:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 100
         payload:
           type: object
           additionalProperties: true

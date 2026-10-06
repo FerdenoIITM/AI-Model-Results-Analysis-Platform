@@ -1,10 +1,13 @@
 package com.amrap.persistence.result;
 
 import com.amrap.domain.result.Result;
+import com.amrap.domain.result.ResultFilter;
+import com.amrap.domain.result.ResultPage;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
@@ -23,11 +26,28 @@ public class ResultRepository {
         return jpa.findById(id).map(ResultMapper::toDomain);
     }
 
-    public List<Result> findAllOrderByInsertedAtDesc(int limit) {
-        return jpa.findAll(PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "insertedAt")))
-                .stream()
-                .map(ResultMapper::toDomain)
-                .toList();
+    public ResultPage search(ResultFilter filter) {
+        Sort.Order order = new Sort.Order(
+                filter.sortDescending() ? Sort.Direction.DESC : Sort.Direction.ASC,
+                filter.sortProperty(),
+                Sort.NullHandling.NULLS_LAST);
+        Page<ResultEntity> page = jpa.findAll(
+                ResultSpecifications.from(filter),
+                PageRequest.of(filter.page() - 1, filter.pageSize(), Sort.by(order)));
+        List<Result> results = page.getContent().stream().map(ResultMapper::toDomain).toList();
+        return new ResultPage(results, page.getTotalElements(), filter.page(), filter.pageSize());
+    }
+
+    public List<String> findDistinctCategories() {
+        return jpa.findDistinctCategories();
+    }
+
+    public List<String> findDistinctSubCategories() {
+        return jpa.findDistinctSubCategories();
+    }
+
+    public List<String> findDistinctSubCategoriesByCategories(List<String> categories) {
+        return jpa.findDistinctSubCategoriesByCategories(categories);
     }
 
     public List<Result> findUnvectorizedBatch(int limit) {

@@ -1,12 +1,25 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
+import { MultiSelectFilter } from "../../features/results/MultiSelectFilter";
+import { NumericFilter } from "../../features/results/NumericFilter";
+import {
+  METRIC_FIELDS,
+  parseResultsQuery,
+  serializeResultsQuery,
+  toggleSort,
+  type MetricFilter,
+  type MetricKey,
+  type ResultsQuery,
+} from "../../features/results/resultsQuery";
 import { useAuth } from "../../features/auth/AuthContext";
 import {
   createResult,
+  fetchFilterOptions,
   fetchResultPayload,
   listResults,
   reindexResults,
 } from "../../shared/api/client";
-import type { ResultSummary } from "../../shared/api/types";
+import type { FilterOptions, ResultPage, ResultSummary } from "../../shared/api/types";
 
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return "—";
@@ -27,24 +40,59 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function formatMetric(value: number | null): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+}
+
+function parsePercent(label: string, raw: string): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    throw new Error(`${label} must be between 0 and 100`);
+  }
+  return value;
+}
+
+function isAbort(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
+function withSelected(options: string[], selected: string[]): string[] {
+  const seen = new Set(options);
+  return [...options, ...selected.filter((item) => !seen.has(item))];
+}
+
 function emptyCreateForm() {
   return {
     modelName: "",
     version: "",
-    iterationId: "",
+    category: "",
+    subCategory: "",
+    confidenceAccuracy: "",
+    sensitivity: "",
+    specificity: "",
+    f1Score: "",
+    recall: "",
+    precision: "",
     payload: '{\n  "example": "paste your model output JSON here"\n}',
   };
 }
 
 export function ResultsPage() {
   const { token, user } = useAuth();
-  const [results, setResults] = useState<ResultSummary[]>([]);
+  const [params, setParams] = useSearchParams();
+  const paramsKey = params.toString();
+  const query = useMemo(() => parseResultsQuery(params), [params, paramsKey]);
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const [pageData, setPageData] = useState<ResultPage | null>(null);
+  const [options, setOptions] = useState<FilterOptions>({ categories: [], subCategories: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [modelFilter, setModelFilter] = useState("");
-  const [versionFilter, setVersionFilter] = useState("");
-  const [vectorFilter, setVectorFilter] = useState<"all" | "yes" | "no">("all");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [modelDraft, setModelDraft] = useState(query.modelName);
+  const [versionDraft, setVersionDraft] = useState(query.version);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(emptyCreateForm);
   const [creating, setCreating] = useState(false);
@@ -55,36 +103,88 @@ export function ResultsPage() {
 
   const canReindex = user?.role === "superadmin";
   const canSubmit = user?.role === "superadmin";
+  const categoryKey = query.categories.join("\u0000");
+  const results = pageData?.results ?? [];
+  const total = pageData?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
 
-  async function refresh() {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      setResults(await listResults(token, 200));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load results");
-    } finally {
-      setLoading(false);
-    }
+  function commitQuery(next: ResultsQuery, resetPage: boolean) {
+    setParams(serializeResultsQuery(resetPage ? { ...next, page: 1 } : next));
   }
 
   useEffect(() => {
-    void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+    setModelDraft(query.modelName);
+  }, [query.modelName]);
 
-  const filtered = useMemo(() => {
-    const m = modelFilter.trim().toLowerCase();
-    const v = versionFilter.trim().toLowerCase();
-    return results.filter((r) => {
-      if (m && !r.modelName.toLowerCase().includes(m)) return false;
-      if (v && !r.version.toLowerCase().includes(v)) return false;
-      if (vectorFilter === "yes" && !r.vectorized) return false;
-      if (vectorFilter === "no" && r.vectorized) return false;
-      return true;
-    });
-  }, [results, modelFilter, versionFilter, vectorFilter]);
+  useEffect(() => {
+    setVersionDraft(query.version);
+  }, [query.version]);
+
+  useEffect(() => {
+    if (modelDraft === query.modelName) return;
+    const timer = window.setTimeout(() => {
+      setParams(serializeResultsQuery({ ...query, modelName: modelDraft, page: 1 }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [modelDraft, query, setParams]);
+
+  useEffect(() => {
+    if (versionDraft === query.version) return;
+    const timer = window.setTimeout(() => {
+      setParams(serializeResultsQuery({ ...query, version: versionDraft, page: 1 }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [versionDraft, query, setParams]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    listResults(token, params, controller.signal)
+      .then((page) => setPageData(page))
+      .catch((err: unknown) => {
+        if (isAbort(err)) return;
+        setError(err instanceof Error ? err.message : "Failed to load results");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [token, params, paramsKey, reloadKey]);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    const categories = query.categories;
+    fetchFilterOptions(token, categories, controller.signal)
+      .then((opts) => {
+        setOptions(opts);
+        const latest = queryRef.current;
+        const allowed = new Set(opts.subCategories);
+        const kept = latest.subCategories.filter((item) => allowed.has(item));
+        if (kept.length !== latest.subCategories.length) {
+          setParams(serializeResultsQuery({ ...latest, subCategories: kept, page: 1 }));
+        }
+      })
+      .catch((err: unknown) => {
+        if (isAbort(err)) return;
+        setError(err instanceof Error ? err.message : "Failed to load filter options");
+      });
+    return () => controller.abort();
+  }, [token, categoryKey, setParams]);
+
+  useEffect(() => {
+    if (!pageData || query.page <= pageCount) return;
+    setParams(serializeResultsQuery({ ...query, page: pageCount }));
+  }, [pageData, pageCount, query, setParams]);
+
+  function setMetric(key: MetricKey, next: MetricFilter | undefined) {
+    const metrics = { ...query.metrics };
+    if (next) metrics[key] = next;
+    else delete metrics[key];
+    commitQuery({ ...query, metrics }, true);
+  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -104,13 +204,20 @@ export function ResultsPage() {
       await createResult(token, {
         modelName: form.modelName.trim(),
         version: form.version.trim(),
-        iterationId: form.iterationId.trim(),
+        category: form.category.trim(),
+        subCategory: form.subCategory.trim(),
+        confidenceAccuracy: parsePercent("Confidence/Accuracy", form.confidenceAccuracy),
+        sensitivity: parsePercent("Sensitivity", form.sensitivity),
+        specificity: parsePercent("Specificity", form.specificity),
+        f1Score: parsePercent("F1 Score", form.f1Score),
+        recall: parsePercent("Recall", form.recall),
+        precision: parsePercent("Precision", form.precision),
         payload: parsedPayload,
       });
       setCreateOpen(false);
       setForm(emptyCreateForm());
       setInfo("Result ingested. The worker will vectorize it shortly.");
-      await refresh();
+      setReloadKey((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
@@ -129,7 +236,7 @@ export function ResultsPage() {
     try {
       const res = await reindexResults(token);
       setInfo(`${res.message} (${res.reset} rows)`);
-      await refresh();
+      setReloadKey((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reindex failed");
     } finally {
@@ -155,6 +262,8 @@ export function ResultsPage() {
       setPayloadLoading(false);
     }
   }
+
+  const pageSizes = [25, 50, 100].includes(query.pageSize) ? [25, 50, 100] : [query.pageSize, 25, 50, 100];
 
   return (
     <section className="panel">
@@ -182,83 +291,164 @@ export function ResultsPage() {
       {error ? <p className="error">{error}</p> : null}
       {info ? <p className="muted">{info}</p> : null}
 
-      <div className="grid">
-        <label>
-          Model
-          <input
-            value={modelFilter}
-            onChange={(e) => setModelFilter(e.target.value)}
-            placeholder="e.g. M1"
+      <div className="filter-bar">
+        <div className="grid">
+          <label>
+            Model
+            <input
+              value={modelDraft}
+              onChange={(e) => setModelDraft(e.target.value)}
+              placeholder="e.g. M1"
+            />
+          </label>
+          <label>
+            Version
+            <input
+              value={versionDraft}
+              onChange={(e) => setVersionDraft(e.target.value)}
+              placeholder="e.g. 1.0.0"
+            />
+          </label>
+          <label>
+            Vectorized
+            <select
+              value={query.vectorized}
+              onChange={(e) =>
+                commitQuery({ ...query, vectorized: e.target.value as ResultsQuery["vectorized"] }, true)
+              }
+            >
+              <option value="all">All</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <MultiSelectFilter
+            label="Category"
+            options={withSelected(options.categories, query.categories)}
+            selected={query.categories}
+            onChange={(categories) => commitQuery({ ...query, categories }, true)}
           />
-        </label>
-        <label>
-          Version
-          <input
-            value={versionFilter}
-            onChange={(e) => setVersionFilter(e.target.value)}
-            placeholder="e.g. 1.0.0"
+          <MultiSelectFilter
+            label="Sub Category"
+            options={withSelected(options.subCategories, query.subCategories)}
+            selected={query.subCategories}
+            onChange={(subCategories) => commitQuery({ ...query, subCategories }, true)}
           />
-        </label>
-        <label>
-          Vectorized
-          <select value={vectorFilter} onChange={(e) => setVectorFilter(e.target.value as typeof vectorFilter)}>
-            <option value="all">All</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
+        </div>
+        <div className="metric-filters">
+          {METRIC_FIELDS.map((field) => (
+            <NumericFilter
+              key={field.key}
+              label={field.label}
+              value={query.metrics[field.key]}
+              onChange={(next) => setMetric(field.key, next)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="pager">
+        <h2>
+          Results ({total})
+        </h2>
+        <span className="muted">
+          {loading ? "Loading…" : `Page ${query.page} of ${pageCount}`}
+        </span>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={query.page <= 1 || loading}
+          onClick={() => commitQuery({ ...query, page: query.page - 1 }, false)}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={query.page >= pageCount || loading}
+          onClick={() => commitQuery({ ...query, page: query.page + 1 }, false)}
+        >
+          Next
+        </button>
+        <label className="page-size">
+          Page size
+          <select
+            value={query.pageSize}
+            onChange={(e) => commitQuery({ ...query, pageSize: Number(e.target.value) }, true)}
+          >
+            {pageSizes.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
           </select>
         </label>
       </div>
 
-      <h2>Results ({filtered.length})</h2>
-      {loading ? (
-        <p>Loading…</p>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Version</th>
-                <th>Iteration</th>
-                <th>Size</th>
-                <th>Inserted</th>
-                <th>Vectorized</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.modelName}</td>
-                  <td>{r.version}</td>
-                  <td>{r.iterationId}</td>
-                  <td className="nowrap">{formatBytes(r.sizeBytes)}</td>
-                  <td className="nowrap">{formatDateTime(r.insertedAt)}</td>
-                  <td>
-                    {r.vectorized ? (
-                      <span className="badge success">yes</span>
-                    ) : (
-                      <span className="badge pending">pending</span>
-                    )}
-                  </td>
-                  <td className="actions">
-                    <button type="button" className="btn ghost" onClick={() => void viewPayload(r)}>
-                      View JSON
-                    </button>
-                  </td>
-                </tr>
+      <div className="table-wrap">
+        <table className="results-table">
+          <thead>
+            <tr>
+              <SortTh label="Model" field="modelName" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, false) }, true)} />
+              <SortTh label="Version" field="version" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, false) }, true)} />
+              <SortTh label="Iteration" field="iterationId" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, false) }, true)} />
+              <SortTh label="Category" field="category" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, false) }, true)} />
+              <SortTh label="Sub Category" field="subCategory" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, false) }, true)} />
+              {METRIC_FIELDS.map((field) => (
+                <SortTh
+                  key={field.key}
+                  label={field.label}
+                  field={field.key}
+                  sort={query.sort}
+                  onSort={(name) => commitQuery({ ...query, sort: toggleSort(query.sort, name, true) }, true)}
+                />
               ))}
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7}>
-                    <span className="muted">No results match the current filters.</span>
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      )}
+              <th>Size</th>
+              <SortTh label="Inserted" field="insertedAt" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, true) }, true)} />
+              <th>Vectorized</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => (
+              <tr key={r.id}>
+                <td>{r.modelName}</td>
+                <td>{r.version}</td>
+                <td>{r.iterationId}</td>
+                <td>{r.category ?? "—"}</td>
+                <td>{r.subCategory ?? "—"}</td>
+                <td>{formatMetric(r.confidenceAccuracy)}</td>
+                <td>{formatMetric(r.sensitivity)}</td>
+                <td>{formatMetric(r.specificity)}</td>
+                <td>{formatMetric(r.f1Score)}</td>
+                <td>{formatMetric(r.recall)}</td>
+                <td>{formatMetric(r.precision)}</td>
+                <td className="nowrap">{formatBytes(r.sizeBytes)}</td>
+                <td className="nowrap">{formatDateTime(r.insertedAt)}</td>
+                <td>
+                  {r.vectorized ? (
+                    <span className="badge success">yes</span>
+                  ) : (
+                    <span className="badge pending">pending</span>
+                  )}
+                </td>
+                <td className="actions">
+                  <button type="button" className="btn ghost" onClick={() => void viewPayload(r)}>
+                    View JSON
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!loading && results.length === 0 ? (
+              <tr>
+                <td colSpan={15}>
+                  <span className="muted">No results match the current filters.</span>
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
 
       {canSubmit && createOpen ? (
         <div
@@ -295,13 +485,51 @@ export function ResultsPage() {
                     />
                   </label>
                   <label>
-                    Iteration id
+                    Category
                     <input
-                      value={form.iterationId}
-                      onChange={(e) => setForm((f) => ({ ...f, iterationId: e.target.value }))}
+                      value={form.category}
+                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                       required
                     />
                   </label>
+                  <label>
+                    Sub category
+                    <input
+                      value={form.subCategory}
+                      onChange={(e) => setForm((f) => ({ ...f, subCategory: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <MetricInput
+                    label="Confidence/Accuracy"
+                    value={form.confidenceAccuracy}
+                    onChange={(value) => setForm((f) => ({ ...f, confidenceAccuracy: value }))}
+                  />
+                  <MetricInput
+                    label="Sensitivity"
+                    value={form.sensitivity}
+                    onChange={(value) => setForm((f) => ({ ...f, sensitivity: value }))}
+                  />
+                  <MetricInput
+                    label="Specificity"
+                    value={form.specificity}
+                    onChange={(value) => setForm((f) => ({ ...f, specificity: value }))}
+                  />
+                  <MetricInput
+                    label="F1 Score"
+                    value={form.f1Score}
+                    onChange={(value) => setForm((f) => ({ ...f, f1Score: value }))}
+                  />
+                  <MetricInput
+                    label="Recall"
+                    value={form.recall}
+                    onChange={(value) => setForm((f) => ({ ...f, recall: value }))}
+                  />
+                  <MetricInput
+                    label="Precision"
+                    value={form.precision}
+                    onChange={(value) => setForm((f) => ({ ...f, precision: value }))}
+                  />
                 </div>
               </fieldset>
               <fieldset className="form-section">
@@ -314,8 +542,8 @@ export function ResultsPage() {
                   required
                 />
                 <p className="muted">
-                  The full JSON is stored verbatim on disk under <code>data/results/</code>. The
-                  worker will flatten and embed it for chat retrieval.
+                  The full JSON is stored verbatim on disk under <code>data/results/</code>. Category,
+                  subcategory, and metrics are stored on the result row as percentage points from 0 to 100.
                 </p>
               </fieldset>
               <div className="modal-actions">
@@ -337,11 +565,7 @@ export function ResultsPage() {
       ) : null}
 
       {payloadFor ? (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={() => setPayloadFor(null)}
-        >
+        <div className="modal-backdrop" role="presentation" onClick={() => setPayloadFor(null)}>
           <div
             className="modal modal-wide"
             role="dialog"
@@ -352,11 +576,7 @@ export function ResultsPage() {
             <h2 id="payload-title">
               {payloadFor.modelName} · {payloadFor.version} · {payloadFor.iterationId}
             </h2>
-            {payloadLoading ? (
-              <p>Loading…</p>
-            ) : (
-              <pre className="json-pre">{payloadText}</pre>
-            )}
+            {payloadLoading ? <p>Loading…</p> : <pre className="json-pre">{payloadText}</pre>}
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={() => setPayloadFor(null)}>
                 Close
@@ -366,5 +586,53 @@ export function ResultsPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function SortTh({
+  label,
+  field,
+  sort,
+  onSort,
+}: {
+  label: string;
+  field: string;
+  sort: string;
+  onSort: (field: string) => void;
+}) {
+  const active = sort === field || sort === `-${field}`;
+  const mark = sort === `-${field}` ? " ↓" : sort === field ? " ↑" : "";
+  return (
+    <th>
+      <button type="button" className={active ? "sort-button active" : "sort-button"} onClick={() => onSort(field)}>
+        {label}
+        {mark}
+      </button>
+    </th>
+  );
+}
+
+function MetricInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label>
+      {label}
+      <input
+        type="number"
+        min={0}
+        max={100}
+        step="any"
+        required
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }

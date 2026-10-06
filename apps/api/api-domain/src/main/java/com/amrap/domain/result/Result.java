@@ -10,6 +10,14 @@ public class Result {
     private String modelName;
     private String version;
     private String iterationId;
+    private String category;
+    private String subCategory;
+    private Double confidenceAccuracy;
+    private Double sensitivity;
+    private Double specificity;
+    private Double f1Score;
+    private Double recall;
+    private Double precision;
     private String jsonPath;
     private long sizeBytes;
     private String contentHash;
@@ -48,6 +56,70 @@ public class Result {
 
     public void setIterationId(String iterationId) {
         this.iterationId = iterationId;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getSubCategory() {
+        return subCategory;
+    }
+
+    public void setSubCategory(String subCategory) {
+        this.subCategory = subCategory;
+    }
+
+    public Double getConfidenceAccuracy() {
+        return confidenceAccuracy;
+    }
+
+    public void setConfidenceAccuracy(Double confidenceAccuracy) {
+        this.confidenceAccuracy = confidenceAccuracy;
+    }
+
+    public Double getSensitivity() {
+        return sensitivity;
+    }
+
+    public void setSensitivity(Double sensitivity) {
+        this.sensitivity = sensitivity;
+    }
+
+    public Double getSpecificity() {
+        return specificity;
+    }
+
+    public void setSpecificity(Double specificity) {
+        this.specificity = specificity;
+    }
+
+    public Double getF1Score() {
+        return f1Score;
+    }
+
+    public void setF1Score(Double f1Score) {
+        this.f1Score = f1Score;
+    }
+
+    public Double getRecall() {
+        return recall;
+    }
+
+    public void setRecall(Double recall) {
+        this.recall = recall;
+    }
+
+    public Double getPrecision() {
+        return precision;
+    }
+
+    public void setPrecision(Double precision) {
+        this.precision = precision;
     }
 
     public String getJsonPath() {

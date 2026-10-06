@@ -23,8 +23,9 @@ Source of truth: [`packages/openapi/openapi.yaml`](../packages/openapi/openapi.y
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| POST | `/api/results` | `X-Ingest-Key` **or** Bearer (superadmin) | Writes raw JSON to disk, inserts metadata row (`is_vectorized=false`). Admin and member JWTs receive 403. |
-| GET | `/api/results` | Bearer | Latest results first; `?limit=N` (default 100, max 500) |
+| POST | `/api/results` | `X-Ingest-Key` **or** Bearer (superadmin) | Writes raw JSON to disk, inserts metadata row (`is_vectorized=false`). The server sets `iterationId` to the local time as `yyyyMMddHHmmss`. Optional `category`, `subCategory`, and percentage metrics (`confidenceAccuracy`, `sensitivity`, `specificity`, `f1Score`, `recall`, `precision`) are stored on the row when present. Values are percentage points from 0 to 100. Admin and member JWTs receive 403. |
+| GET | `/api/results` | Bearer | Filtered page. Query params apply in the database before sort and offset. Response is `{ results, total, page, pageSize }`. Default sort is newest first (`sort=-insertedAt`), `page=1`, `pageSize=50` (max 100). |
+| GET | `/api/results/filter-options` | Bearer | Distinct `categories` and `subCategories`. Repeat `category` to limit subcategories to those categories. |
 | GET | `/api/results/{id}` | Bearer | Metadata row |
 | GET | `/api/results/{id}/payload` | Bearer | Raw JSON file content |
 | POST | `/api/results/reindex` | Bearer (superadmin) | `TRUNCATE result_chunks` + flip all `is_vectorized=false`. Worker re-embeds. |

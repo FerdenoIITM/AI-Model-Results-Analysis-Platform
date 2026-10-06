@@ -25,6 +25,30 @@ public class ResultEntity {
     @Column(name = "iteration_id", nullable = false, length = 255)
     private String iterationId;
 
+    @Column(name = "category", length = 120)
+    private String category;
+
+    @Column(name = "sub_category", length = 120)
+    private String subCategory;
+
+    @Column(name = "confidence_accuracy")
+    private Double confidenceAccuracy;
+
+    @Column(name = "sensitivity")
+    private Double sensitivity;
+
+    @Column(name = "specificity")
+    private Double specificity;
+
+    @Column(name = "f1_score")
+    private Double f1Score;
+
+    @Column(name = "recall")
+    private Double recall;
+
+    @Column(name = "precision")
+    private Double precision;
+
     @Column(name = "json_path", nullable = false)
     private String jsonPath;
 
@@ -86,6 +110,70 @@ public class ResultEntity {
 
     public void setIterationId(String iterationId) {
         this.iterationId = iterationId;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getSubCategory() {
+        return subCategory;
+    }
+
+    public void setSubCategory(String subCategory) {
+        this.subCategory = subCategory;
+    }
+
+    public Double getConfidenceAccuracy() {
+        return confidenceAccuracy;
+    }
+
+    public void setConfidenceAccuracy(Double confidenceAccuracy) {
+        this.confidenceAccuracy = confidenceAccuracy;
+    }
+
+    public Double getSensitivity() {
+        return sensitivity;
+    }
+
+    public void setSensitivity(Double sensitivity) {
+        this.sensitivity = sensitivity;
+    }
+
+    public Double getSpecificity() {
+        return specificity;
+    }
+
+    public void setSpecificity(Double specificity) {
+        this.specificity = specificity;
+    }
+
+    public Double getF1Score() {
+        return f1Score;
+    }
+
+    public void setF1Score(Double f1Score) {
+        this.f1Score = f1Score;
+    }
+
+    public Double getRecall() {
+        return recall;
+    }
+
+    public void setRecall(Double recall) {
+        this.recall = recall;
+    }
+
+    public Double getPrecision() {
+        return precision;
+    }
+
+    public void setPrecision(Double precision) {
+        this.precision = precision;
     }
 
     public String getJsonPath() {
