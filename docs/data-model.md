@@ -58,7 +58,7 @@ See [`infra/db/migrations/V3__results_rag.sql`](../infra/db/migrations/V3__resul
 ### Entity: Result
 
 One row per ingested AI model result. The raw JSON lives on disk at
-`${RESULTS_STORAGE_DIR}/<year>/<month>/<day>/<uuid>.json`. Postgres only stores metadata.
+`${RESULTS_STORAGE_DIR}/<uuid>.json`. Postgres only stores metadata.
 
 | Column | Type | Notes |
 |--------|------|--------|

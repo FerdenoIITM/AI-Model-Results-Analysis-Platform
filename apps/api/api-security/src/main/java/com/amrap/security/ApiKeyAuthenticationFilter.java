@@ -25,7 +25,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Ingest-Key";
-    private static final UUID SERVICE_PRINCIPAL_ID =
+    /** Not a row in users. Machine ingest must store created_by as null. */
+    public static final UUID SERVICE_PRINCIPAL_ID =
             UUID.fromString("00000000-0000-0000-0000-00000000A1E7");
 
     private final String expectedKey;

@@ -8,6 +8,7 @@ import com.amrap.application.ingestion.ResultQueryService;
 import com.amrap.application.rag.ReindexService;
 import com.amrap.domain.result.Result;
 import com.amrap.domain.user.UserRole;
+import com.amrap.security.ApiKeyAuthenticationFilter;
 import com.amrap.security.AuthenticatedUser;
 import com.amrap.security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -62,6 +63,9 @@ public class ResultController {
         } catch (JsonProcessingException ex) {
             throw new AppException(400, "payload must be valid JSON");
         }
+        UUID createdBy = ApiKeyAuthenticationFilter.SERVICE_PRINCIPAL_ID.equals(actor.getId())
+                ? null
+                : actor.getId();
         Result saved = ingestService.ingest(
                 new IngestResultCommand(
                         request.modelName(),
@@ -75,7 +79,7 @@ public class ResultController {
                         request.f1Score(),
                         request.recall(),
                         request.precision()),
-                actor.getId());
+                createdBy);
         return ResponseEntity.status(HttpStatus.CREATED).body(ResultSummary.from(saved));
     }
 

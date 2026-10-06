@@ -88,7 +88,7 @@ Planned next: separate env configs (e.g. `.env.dev`, `.env.test`, `.env.prod`) a
 
 ## RAG workflow
 
-1. **Ingest** — `POST /api/results` with header `X-Ingest-Key: <INGEST_API_KEY>` (normal path for Postman, Python, and other clients) or a superadmin JWT (website fallback) and body `{ modelName, version, payload }`. The server sets `iterationId` to the local time as `yyyyMMddHHmmss`. Admin and member JWTs receive 403. The raw JSON is written to `./data/results/<year>/<month>/<day>/<uuid>.json` and a row is inserted with `is_vectorized=false`.
+1. **Ingest** — `POST /api/results` with header `X-Ingest-Key: <INGEST_API_KEY>` (normal path for Postman, Python, and other clients) or a superadmin JWT (website fallback) and body `{ modelName, version, payload }`. The server sets `iterationId` to the local time as `yyyyMMddHHmmss`. Admin and member JWTs receive 403. The raw JSON is written to `./data/results/<uuid>.json` and a row is inserted with `is_vectorized=false`.
 2. **Vectorize (automatic)** — The background worker polls every `RAG_WORKER_DELAY_MS`, chunks the JSON, calls Ollama's embedding model (`nomic-embed-text`), writes chunks + vectors into `result_chunks`, and flips the row to `is_vectorized=true`.
 3. **Chat** — `POST /api/chat` with `{ question, modelName?, version?, fromIso?, toIso? }`. The service filters by metadata, runs HNSW similarity in pgvector, and asks the Ollama chat model (`llama3.2:3b`) to answer using the retrieved chunks. Returns `{ answer, citations[] }`.
 4. **Reindex** — Superadmin can call `POST /api/results/reindex` from the Results page: it truncates `result_chunks` and flips every row to `is_vectorized=false`; the worker re-embeds everything.

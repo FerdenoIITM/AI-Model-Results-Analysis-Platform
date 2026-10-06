@@ -12,7 +12,6 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -28,9 +27,6 @@ public class IngestResultService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestResultService.class);
     private static final DateTimeFormatter ITERATION_ID = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-    private static final DateTimeFormatter YEAR = DateTimeFormatter.ofPattern("yyyy");
-    private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MM");
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd");
 
     private final ResultRepository resultRepository;
     private final RagProperties properties;
@@ -53,16 +49,12 @@ public class IngestResultService {
         ResultConstraints.optionalPercentage("precision", cmd.precision());
 
         UUID id = UUID.randomUUID();
-        LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         Path storageRoot = Paths.get(properties.getStorageDir()).toAbsolutePath().normalize();
-        String relativeDir = String.join("/", today.format(YEAR), today.format(MONTH), today.format(DAY));
-        Path dir = storageRoot.resolve(relativeDir);
-        String filename = id + ".json";
-        Path absolute = dir.resolve(filename);
-        String relativePath = relativeDir + "/" + filename;
+        String relativePath = id + ".json";
+        Path absolute = storageRoot.resolve(relativePath);
 
         try {
-            Files.createDirectories(dir);
+            Files.createDirectories(storageRoot);
             byte[] bytes = cmd.rawJson().getBytes(StandardCharsets.UTF_8);
             Files.write(absolute, bytes);
 
