@@ -5,6 +5,7 @@ import { NumericFilter } from "../../features/results/NumericFilter";
 import {
   METRIC_FIELDS,
   cycleSort,
+  emptyResultsQuery,
   parseResultsQuery,
   serializeResultsQuery,
   toggleSort,
@@ -103,6 +104,7 @@ export function ResultsPage() {
   const [payloadText, setPayloadText] = useState<string>("");
   const [payloadLoading, setPayloadLoading] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterResetKey, setFilterResetKey] = useState(0);
 
   const canReindex = user?.role === "superadmin";
   const canSubmit = user?.role === "superadmin";
@@ -120,6 +122,12 @@ export function ResultsPage() {
 
   function commitQuery(next: ResultsQuery, resetPage: boolean) {
     setParams(serializeResultsQuery(resetPage ? { ...next, page: 1 } : next));
+  }
+
+  function clearFilters() {
+    commitQuery({ ...emptyResultsQuery(), pageSize: query.pageSize, sort: query.sort }, true);
+    // Remounts the filter controls so typed-but-unapplied values and search text are discarded too.
+    setFilterResetKey((key) => key + 1);
   }
 
   useEffect(() => {
@@ -326,7 +334,22 @@ export function ResultsPage() {
       </div>
 
       <div id="results-filters" className="filter-bar" hidden={!filtersOpen}>
-        <div className="grid">
+        <div className="filter-bar-header">
+          <span className="muted">
+            {activeFilterCount === 0
+              ? "No filters applied"
+              : `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied`}
+          </span>
+          <button
+            type="button"
+            className="btn ghost clear-filters"
+            disabled={activeFilterCount === 0}
+            onClick={clearFilters}
+          >
+            Clear filters
+          </button>
+        </div>
+        <div className="grid" key={`grid-${filterResetKey}`}>
           <MultiSelectFilter
             label="Model"
             options={withSelected(options.models, query.models)}
@@ -359,7 +382,7 @@ export function ResultsPage() {
             onChange={(subCategories) => commitQuery({ ...query, subCategories }, true)}
           />
         </div>
-        <div className="metric-filters">
+        <div className="metric-filters" key={`metrics-${filterResetKey}`}>
           {METRIC_FIELDS.map((field) => (
             <NumericFilter
               key={field.key}
