@@ -38,6 +38,10 @@ public class ResultRepository {
         return new ResultPage(results, page.getTotalElements(), filter.page(), filter.pageSize());
     }
 
+    public List<String> findDistinctModelNames() {
+        return jpa.findDistinctModelNames();
+    }
+
     public List<String> findDistinctCategories() {
         return jpa.findDistinctCategories();
     }

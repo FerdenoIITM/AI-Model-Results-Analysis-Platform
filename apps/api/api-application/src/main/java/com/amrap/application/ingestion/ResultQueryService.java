@@ -39,7 +39,7 @@ public class ResultQueryService {
         List<String> subCategories = categories.isEmpty()
                 ? resultRepository.findDistinctSubCategories()
                 : resultRepository.findDistinctSubCategoriesByCategories(categories);
-        return new FilterOptions(allCategories, subCategories);
+        return new FilterOptions(resultRepository.findDistinctModelNames(), allCategories, subCategories);
     }
 
     @Transactional(readOnly = true)

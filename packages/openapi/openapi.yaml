@@ -127,7 +127,7 @@ paths:
       summary: List ingested results
       description: |
         Filters, then sorts, then paginates in the database. Unknown query keys are rejected.
-        Category and subcategory match exactly and may be repeated. Numeric filters use a suffix
+        Model, category, and subcategory match exactly and may be repeated. Numeric filters use a suffix
         on the camelCase field: Eq, Gt, Gte, Lt, Lte. A range is a lower bound plus an upper bound
         on the same field. Metrics are percentage points from 0 to 100.
         Sort is a whitelisted field with an optional leading `-` for descending. Default sort is
@@ -137,18 +137,16 @@ paths:
       parameters:
         - $ref: '#/components/parameters/CategoryQuery'
         - $ref: '#/components/parameters/SubCategoryQuery'
-        - name: modelName
+        - name: model
           in: query
+          style: form
+          explode: true
           schema:
-            type: string
-            maxLength: 255
-          description: Case-insensitive substring match
-        - name: version
-          in: query
-          schema:
-            type: string
-            maxLength: 100
-          description: Case-insensitive substring match
+            type: array
+            items:
+              type: string
+              maxLength: 255
+          description: Exact model name. Repeat for several models. Values come from `/results/filter-options`.
         - name: vectorized
           in: query
           schema:
@@ -248,9 +246,9 @@ paths:
 
   /results/filter-options:
     get:
-      summary: Distinct category and subcategory values for the filter UI
+      summary: Distinct model, category, and subcategory values for the filter UI
       description: |
-        `categories` is always the full distinct set. Repeat `category` to limit `subCategories`
+        `models` and `categories` are always the full distinct sets. Repeat `category` to limit `subCategories`
         to values that occur with those categories. Omit `category` to list every subcategory.
       security:
         - bearerAuth: []
@@ -673,8 +671,12 @@ components:
           maximum: 100
     FilterOptions:
       type: object
-      required: [categories, subCategories]
+      required: [models, categories, subCategories]
       properties:
+        models:
+          type: array
+          items:
+            type: string
         categories:
           type: array
           items:

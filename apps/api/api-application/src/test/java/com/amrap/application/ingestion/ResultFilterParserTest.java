@@ -25,8 +25,7 @@ class ResultFilterParserTest {
         assertThat(filter.categories()).isEmpty();
         assertThat(filter.subCategories()).isEmpty();
         assertThat(filter.metrics()).isEmpty();
-        assertThat(filter.modelNameContains()).isNull();
-        assertThat(filter.versionContains()).isNull();
+        assertThat(filter.modelNames()).isEmpty();
         assertThat(filter.vectorized()).isNull();
     }
 
@@ -35,8 +34,7 @@ class ResultFilterParserTest {
         Map<String, String[]> params = new LinkedHashMap<>();
         params.put("category", new String[] {" Cardiology ", "Neurology"});
         params.put("subCategory", new String[] {"Aortic Valve"});
-        params.put("modelName", new String[] {"M1"});
-        params.put("version", new String[] {"1.0"});
+        params.put("model", new String[] {" CardioNet ", "NeuroSlice", "CardioNet"});
         params.put("vectorized", new String[] {"true"});
         params.put("confidenceAccuracyGte", new String[] {"95"});
         params.put("sensitivityGt", new String[] {"90"});
@@ -51,8 +49,7 @@ class ResultFilterParserTest {
 
         assertThat(filter.categories()).containsExactly("Cardiology", "Neurology");
         assertThat(filter.subCategories()).containsExactly("Aortic Valve");
-        assertThat(filter.modelNameContains()).isEqualTo("M1");
-        assertThat(filter.versionContains()).isEqualTo("1.0");
+        assertThat(filter.modelNames()).containsExactly("CardioNet", "NeuroSlice");
         assertThat(filter.vectorized()).isTrue();
         assertThat(filter.metrics().get(ResultMetric.CONFIDENCE_ACCURACY))
                 .containsExactly(new MetricBound(CompareOp.GTE, 95));
@@ -90,6 +87,8 @@ class ResultFilterParserTest {
     void rejectsUnknownField() {
         assertBad(Map.of("limit", new String[] {"10"}), "Unsupported filter field: limit");
         assertBad(Map.of("confidenceAccuracyGe", new String[] {"1"}), "Unsupported filter field");
+        assertBad(Map.of("version", new String[] {"1.0"}), "Unsupported filter field: version");
+        assertBad(Map.of("modelName", new String[] {"M1"}), "Unsupported filter field: modelName");
     }
 
     @Test
@@ -136,7 +135,8 @@ class ResultFilterParserTest {
         assertBad(Map.of("pageSize", new String[] {"0"}), "pageSize must be an integer from 1 to 100");
         assertBad(Map.of("page", new String[] {"1.5"}), "page must be an integer");
         assertBad(Map.of("vectorized", new String[] {"yes"}), "vectorized must be true or false");
-        assertBad(Map.of("modelName", new String[] {"a", "b"}), "modelName must be specified once");
+        assertBad(Map.of("model", new String[] {" "}), "model must not be blank");
+        assertBad(Map.of("model", new String[] {"x".repeat(256)}), "model must be at most 255 characters");
     }
 
     @Test

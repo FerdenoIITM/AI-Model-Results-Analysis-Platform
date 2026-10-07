@@ -1852,7 +1852,13 @@ Use the existing application's theme and navigation style. Ensure the active sta
 
 ------------------------------------------------------------------------------------------------
 
+Add a **"Clear Filters"** button to the Results page.
 
+- Place it clearly near the filter controls.
+- Clicking it should reset **all applied filters at once**.
+- Reset dropdowns, numeric operators/values, ranges, and all other filter selections to their default state.
+- Refresh the results to show the unfiltered dataset.
+- Do not change the existing individual filter functionality.
 
 ------------------------------------------------------------------------------------------------
 

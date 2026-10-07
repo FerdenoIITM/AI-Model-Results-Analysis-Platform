@@ -19,10 +19,9 @@ describe("resultsQuery", () => {
   it("round-trips combined filters", () => {
     const query: ResultsQuery = {
       ...emptyResultsQuery(),
+      models: ["CardioNet", "NeuroSlice"],
       categories: ["Cardiology", "Neurology"],
       subCategories: ["Aortic Valve"],
-      modelName: "M1",
-      version: "1.0.0",
       vectorized: "true",
       metrics: {
         confidenceAccuracy: { lowerOp: "gte", lower: "95" },
@@ -36,6 +35,13 @@ describe("resultsQuery", () => {
     };
 
     expect(parseResultsQuery(serializeResultsQuery(query))).toEqual(query);
+    expect(serializeResultsQuery(query).getAll("model")).toEqual(["CardioNet", "NeuroSlice"]);
+  });
+
+  it("drops the removed modelName and version URL params", () => {
+    const query = parseResultsQuery(new URLSearchParams("modelName=M1&version=1.0.0&model=ChestScan"));
+    expect(query.models).toEqual(["ChestScan"]);
+    expect(serializeResultsQuery(query).toString()).toBe("model=ChestScan");
   });
 
   it("rejects an inverted range and values outside 0 to 100", () => {

@@ -19,6 +19,7 @@ public final class ResultFilterParser {
     public static final int DEFAULT_PAGE_SIZE = 50;
     public static final int MAX_PAGE_SIZE = 100;
     public static final String DEFAULT_SORT = "insertedAt";
+    private static final int MAX_MODEL_NAME_LENGTH = 255;
 
     private static final List<String> SUFFIX_ORDER = List.of("Eq", "Gt", "Gte", "Lt", "Lte");
     private static final Map<String, CompareOp> SUFFIXES = Map.of(
@@ -48,8 +49,7 @@ public final class ResultFilterParser {
         Set<String> keys = new LinkedHashSet<>();
         keys.add("category");
         keys.add("subCategory");
-        keys.add("modelName");
-        keys.add("version");
+        keys.add("model");
         keys.add("vectorized");
         keys.add("page");
         keys.add("pageSize");
@@ -87,8 +87,7 @@ public final class ResultFilterParser {
         return new ResultFilter(
                 labels("category", params.get("category")),
                 labels("subCategory", params.get("subCategory")),
-                contains("modelName", params.get("modelName"), 255),
-                contains("version", params.get("version"), 100),
+                modelNames(params.get("model")),
                 vectorized(params.get("vectorized")),
                 metrics,
                 sortProperty,
@@ -175,18 +174,22 @@ public final class ResultFilterParser {
         return List.copyOf(unique);
     }
 
-    private static String contains(String field, String[] values, int maxLength) {
+    private static List<String> modelNames(String[] values) {
         if (values == null) {
-            return null;
+            return List.of();
         }
-        String trimmed = single(field, values).trim();
-        if (trimmed.isEmpty()) {
-            throw new AppException(400, field + " must not be blank");
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String value : values) {
+            String trimmed = value == null ? "" : value.trim();
+            if (trimmed.isEmpty()) {
+                throw new AppException(400, "model must not be blank");
+            }
+            if (trimmed.length() > MAX_MODEL_NAME_LENGTH) {
+                throw new AppException(400, "model must be at most " + MAX_MODEL_NAME_LENGTH + " characters");
+            }
+            unique.add(trimmed);
         }
-        if (trimmed.length() > maxLength) {
-            throw new AppException(400, field + " must be at most " + maxLength + " characters");
-        }
-        return trimmed;
+        return List.copyOf(unique);
     }
 
     private static Boolean vectorized(String[] values) {

@@ -8,7 +8,6 @@ import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -27,11 +26,8 @@ public final class ResultSpecifications {
             if (!filter.subCategories().isEmpty()) {
                 predicates.add(root.get("subCategory").in(filter.subCategories()));
             }
-            if (filter.modelNameContains() != null) {
-                predicates.add(containsIgnoreCase(cb, root.get("modelName"), filter.modelNameContains()));
-            }
-            if (filter.versionContains() != null) {
-                predicates.add(containsIgnoreCase(cb, root.get("version"), filter.versionContains()));
+            if (!filter.modelNames().isEmpty()) {
+                predicates.add(root.get("modelName").in(filter.modelNames()));
             }
             if (filter.vectorized() != null) {
                 predicates.add(cb.equal(root.get("vectorized"), filter.vectorized()));
@@ -57,13 +53,5 @@ public final class ResultSpecifications {
             case LT -> cb.lessThan(path, bound.value());
             case LTE -> cb.lessThanOrEqualTo(path, bound.value());
         };
-    }
-
-    private static Predicate containsIgnoreCase(CriteriaBuilder cb, Path<String> path, String raw) {
-        String escaped = raw.toLowerCase(Locale.ROOT)
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
-        return cb.like(cb.lower(path), "%" + escaped + "%", '\\');
     }
 }

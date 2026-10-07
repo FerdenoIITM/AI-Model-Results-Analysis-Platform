@@ -21,10 +21,9 @@ export interface MetricFilter {
 }
 
 export interface ResultsQuery {
+  models: string[];
   categories: string[];
   subCategories: string[];
-  modelName: string;
-  version: string;
   vectorized: "all" | "true" | "false";
   metrics: Partial<Record<MetricKey, MetricFilter>>;
   page: number;
@@ -39,10 +38,9 @@ const METRIC_KEYS = new Set<string>(METRIC_FIELDS.map((field) => field.key));
 
 export function emptyResultsQuery(): ResultsQuery {
   return {
+    models: [],
     categories: [],
     subCategories: [],
-    modelName: "",
-    version: "",
     vectorized: "all",
     metrics: {},
     page: 1,
@@ -53,10 +51,9 @@ export function emptyResultsQuery(): ResultsQuery {
 
 export function parseResultsQuery(params: URLSearchParams): ResultsQuery {
   const query = emptyResultsQuery();
+  query.models = params.getAll("model").map((value) => value.trim()).filter(Boolean);
   query.categories = params.getAll("category").map((value) => value.trim()).filter(Boolean);
   query.subCategories = params.getAll("subCategory").map((value) => value.trim()).filter(Boolean);
-  query.modelName = params.get("modelName")?.trim() ?? "";
-  query.version = params.get("version")?.trim() ?? "";
   const vectorized = params.get("vectorized");
   if (vectorized === "true" || vectorized === "false") {
     query.vectorized = vectorized;
@@ -109,16 +106,15 @@ export function parseResultsQuery(params: URLSearchParams): ResultsQuery {
 
 export function serializeResultsQuery(query: ResultsQuery): URLSearchParams {
   const params = new URLSearchParams();
+  for (const model of query.models) {
+    if (model) params.append("model", model);
+  }
   for (const category of query.categories) {
     if (category) params.append("category", category);
   }
   for (const subCategory of query.subCategories) {
     if (subCategory) params.append("subCategory", subCategory);
   }
-  const modelName = query.modelName.trim();
-  const version = query.version.trim();
-  if (modelName) params.set("modelName", modelName);
-  if (version) params.set("version", version);
   if (query.vectorized === "true" || query.vectorized === "false") {
     params.set("vectorized", query.vectorized);
   }

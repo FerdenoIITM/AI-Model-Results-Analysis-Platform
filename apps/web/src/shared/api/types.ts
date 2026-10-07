@@ -46,6 +46,7 @@ export interface ResultPage {
 }
 
 export interface FilterOptions {
+  models: string[];
   categories: string[];
   subCategories: string[];
 }

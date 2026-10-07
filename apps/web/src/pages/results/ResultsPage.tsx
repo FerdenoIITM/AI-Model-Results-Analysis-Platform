@@ -90,13 +90,11 @@ export function ResultsPage() {
   const queryRef = useRef(query);
   queryRef.current = query;
   const [pageData, setPageData] = useState<ResultPage | null>(null);
-  const [options, setOptions] = useState<FilterOptions>({ categories: [], subCategories: [] });
+  const [options, setOptions] = useState<FilterOptions>({ models: [], categories: [], subCategories: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [modelDraft, setModelDraft] = useState(query.modelName);
-  const [versionDraft, setVersionDraft] = useState(query.version);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(emptyCreateForm);
   const [creating, setCreating] = useState(false);
@@ -112,9 +110,9 @@ export function ResultsPage() {
   const results = pageData?.results ?? [];
   const total = pageData?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
+  const apiQueryKey = serializeResultsQuery(query).toString();
   const activeFilterCount =
-    (query.modelName ? 1 : 0) +
-    (query.version ? 1 : 0) +
+    (query.models.length > 0 ? 1 : 0) +
     (query.vectorized !== "all" ? 1 : 0) +
     (query.categories.length > 0 ? 1 : 0) +
     (query.subCategories.length > 0 ? 1 : 0) +
@@ -125,35 +123,11 @@ export function ResultsPage() {
   }
 
   useEffect(() => {
-    setModelDraft(query.modelName);
-  }, [query.modelName]);
-
-  useEffect(() => {
-    setVersionDraft(query.version);
-  }, [query.version]);
-
-  useEffect(() => {
-    if (modelDraft === query.modelName) return;
-    const timer = window.setTimeout(() => {
-      setParams(serializeResultsQuery({ ...query, modelName: modelDraft, page: 1 }));
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [modelDraft, query, setParams]);
-
-  useEffect(() => {
-    if (versionDraft === query.version) return;
-    const timer = window.setTimeout(() => {
-      setParams(serializeResultsQuery({ ...query, version: versionDraft, page: 1 }));
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [versionDraft, query, setParams]);
-
-  useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    listResults(token, params, controller.signal)
+    listResults(token, new URLSearchParams(apiQueryKey), controller.signal)
       .then((page) => setPageData(page))
       .catch((err: unknown) => {
         if (isAbort(err)) return;
@@ -163,7 +137,7 @@ export function ResultsPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [token, params, paramsKey, reloadKey]);
+  }, [token, apiQueryKey, reloadKey]);
 
   useEffect(() => {
     if (!token) return;
@@ -184,7 +158,7 @@ export function ResultsPage() {
         setError(err instanceof Error ? err.message : "Failed to load filter options");
       });
     return () => controller.abort();
-  }, [token, categoryKey, setParams]);
+  }, [token, categoryKey, reloadKey, setParams]);
 
   useEffect(() => {
     if (!pageData || query.page <= pageCount) return;
@@ -353,22 +327,12 @@ export function ResultsPage() {
 
       <div id="results-filters" className="filter-bar" hidden={!filtersOpen}>
         <div className="grid">
-          <label>
-            Model
-            <input
-              value={modelDraft}
-              onChange={(e) => setModelDraft(e.target.value)}
-              placeholder="e.g. M1"
-            />
-          </label>
-          <label>
-            Version
-            <input
-              value={versionDraft}
-              onChange={(e) => setVersionDraft(e.target.value)}
-              placeholder="e.g. 1.0.0"
-            />
-          </label>
+          <MultiSelectFilter
+            label="Model"
+            options={withSelected(options.models, query.models)}
+            selected={query.models}
+            onChange={(models) => commitQuery({ ...query, models }, true)}
+          />
           <label>
             Vectorized
             <select

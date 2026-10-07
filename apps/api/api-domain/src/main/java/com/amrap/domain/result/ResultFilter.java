@@ -4,14 +4,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Server-side list query. Page is 1-based. Absent text filters are null or empty.
+ * Server-side list query. Page is 1-based. Absent list filters are empty.
  * Metric bounds are AND-ed. The repository applies this before sort and offset.
  */
 public record ResultFilter(
         List<String> categories,
         List<String> subCategories,
-        String modelNameContains,
-        String versionContains,
+        List<String> modelNames,
         Boolean vectorized,
         Map<ResultMetric, List<MetricBound>> metrics,
         String sortProperty,
@@ -22,6 +21,7 @@ public record ResultFilter(
     public ResultFilter {
         categories = List.copyOf(categories);
         subCategories = List.copyOf(subCategories);
+        modelNames = List.copyOf(modelNames);
         metrics = Map.copyOf(metrics);
         if (sortProperty == null || sortProperty.isBlank()) {
             throw new IllegalArgumentException("sortProperty is required");

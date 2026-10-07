@@ -14,6 +14,13 @@ import org.springframework.data.repository.query.Param;
 public interface ResultJpaRepository extends JpaRepository<ResultEntity, UUID>, JpaSpecificationExecutor<ResultEntity> {
 
     @Query("""
+            select distinct r.modelName
+              from ResultEntity r
+             order by r.modelName
+            """)
+    List<String> findDistinctModelNames();
+
+    @Query("""
             select distinct r.category
               from ResultEntity r
              where r.category is not null
