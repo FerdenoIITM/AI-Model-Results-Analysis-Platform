@@ -42,7 +42,10 @@ function formatBytes(n: number): string {
 
 function formatMetric(value: number | null): string {
   if (value == null || Number.isNaN(value)) return "—";
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function parsePercent(label: string, raw: string): number {
@@ -266,7 +269,7 @@ export function ResultsPage() {
   const pageSizes = [25, 50, 100].includes(query.pageSize) ? [25, 50, 100] : [query.pageSize, 25, 50, 100];
 
   return (
-    <section className="panel">
+    <section className="panel panel-wide">
       <div className="panel-header">
         <h1>Model Results</h1>
         <div className="actions">
@@ -385,7 +388,7 @@ export function ResultsPage() {
         </label>
       </div>
 
-      <div className="table-wrap">
+      <div className={loading ? "table-wrap results-table-wrap is-loading" : "table-wrap results-table-wrap"}>
         <table className="results-table">
           <thead>
             <tr>
@@ -412,27 +415,27 @@ export function ResultsPage() {
           <tbody>
             {results.map((r) => (
               <tr key={r.id}>
-                <td>{r.modelName}</td>
-                <td>{r.version}</td>
-                <td>{r.iterationId}</td>
-                <td>{r.category ?? "—"}</td>
-                <td>{r.subCategory ?? "—"}</td>
-                <td>{formatMetric(r.confidenceAccuracy)}</td>
-                <td>{formatMetric(r.sensitivity)}</td>
-                <td>{formatMetric(r.specificity)}</td>
-                <td>{formatMetric(r.f1Score)}</td>
-                <td>{formatMetric(r.recall)}</td>
-                <td>{formatMetric(r.precision)}</td>
-                <td className="nowrap">{formatBytes(r.sizeBytes)}</td>
-                <td className="nowrap">{formatDateTime(r.insertedAt)}</td>
-                <td>
+                <td className="cell-text cell-primary" title={r.modelName}>{r.modelName}</td>
+                <td className="cell-text" title={r.version}>{r.version}</td>
+                <td className="cell-mono">{r.iterationId}</td>
+                <td className="cell-text" title={r.category ?? undefined}>{r.category ?? "—"}</td>
+                <td className="cell-text" title={r.subCategory ?? undefined}>{r.subCategory ?? "—"}</td>
+                <td className="cell-num">{formatMetric(r.confidenceAccuracy)}</td>
+                <td className="cell-num">{formatMetric(r.sensitivity)}</td>
+                <td className="cell-num">{formatMetric(r.specificity)}</td>
+                <td className="cell-num">{formatMetric(r.f1Score)}</td>
+                <td className="cell-num">{formatMetric(r.recall)}</td>
+                <td className="cell-num">{formatMetric(r.precision)}</td>
+                <td className="cell-num">{formatBytes(r.sizeBytes)}</td>
+                <td className="cell-date">{formatDateTime(r.insertedAt)}</td>
+                <td className="cell-status">
                   {r.vectorized ? (
                     <span className="badge success">yes</span>
                   ) : (
                     <span className="badge pending">pending</span>
                   )}
                 </td>
-                <td className="actions">
+                <td className="cell-action">
                   <button type="button" className="btn ghost" onClick={() => void viewPayload(r)}>
                     View JSON
                   </button>
@@ -441,7 +444,7 @@ export function ResultsPage() {
             ))}
             {!loading && results.length === 0 ? (
               <tr>
-                <td colSpan={15}>
+                <td className="cell-empty" colSpan={15}>
                   <span className="muted">No results match the current filters.</span>
                 </td>
               </tr>
@@ -600,13 +603,17 @@ function SortTh({
   sort: string;
   onSort: (field: string) => void;
 }) {
-  const active = sort === field || sort === `-${field}`;
-  const mark = sort === `-${field}` ? " ↓" : sort === field ? " ↑" : "";
+  const descending = sort === `-${field}`;
+  const ascending = sort === field;
+  const active = ascending || descending;
+  const mark = descending ? "↓" : ascending ? "↑" : "";
   return (
-    <th>
+    <th aria-sort={descending ? "descending" : ascending ? "ascending" : "none"}>
       <button type="button" className={active ? "sort-button active" : "sort-button"} onClick={() => onSort(field)}>
-        {label}
-        {mark}
+        <span>{label}</span>
+        <span className="sort-mark" aria-hidden="true">
+          {mark}
+        </span>
       </button>
     </th>
   );

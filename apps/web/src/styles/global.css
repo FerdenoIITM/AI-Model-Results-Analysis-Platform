@@ -553,8 +553,146 @@ select:disabled {
   padding: 0.35rem 0.5rem;
 }
 
+.panel-wide {
+  width: min(1440px, 100%);
+}
+
+.results-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: auto;
+  max-height: 70vh;
+  -webkit-overflow-scrolling: touch;
+}
+
+.results-table-wrap.is-loading tbody {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .results-table {
+  width: 100%;
   min-width: 72rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.results-table th,
+.results-table td {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+.results-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.75rem 0.65rem;
+  background: #faf7ef;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.results-table td {
+  height: 3.25rem;
+  padding: 0.7rem 0.65rem;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.results-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.results-table tbody tr:nth-child(even) {
+  background: #fcfaf5;
+}
+
+.results-table tbody tr:hover {
+  background: #eef4f1;
+}
+
+.results-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.results-table .sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  letter-spacing: inherit;
+  text-align: center;
+  border-radius: 6px;
+}
+
+.results-table .sort-button:hover {
+  color: var(--ink);
+}
+
+.results-table .sort-button.active {
+  color: var(--accent);
+}
+
+.results-table .sort-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.sort-mark {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+}
+
+.results-table .cell-text {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.results-table .cell-primary {
+  font-weight: 600;
+}
+
+.results-table .cell-mono {
+  font-family: "Fira Code", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.results-table .cell-date {
+  color: var(--muted);
+}
+
+.results-table .cell-action .btn {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  background: #fff;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+.results-table .cell-action .btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.results-table .cell-empty {
+  height: auto;
+  padding: 2.5rem 1rem;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.results-table .badge {
+  min-width: 4.5rem;
+  text-align: center;
 }
 
 .json-textarea,
@@ -695,5 +833,15 @@ code {
   }
   .chat-bubble {
     max-width: 100%;
+  }
+  .panel-wide {
+    padding: 1rem;
+  }
+  .results-table th,
+  .results-table td {
+    padding: 0.55rem 0.6rem;
+  }
+  .pager {
+    gap: 0.5rem;
   }
 }
