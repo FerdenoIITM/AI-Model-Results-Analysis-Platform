@@ -1765,3 +1765,56 @@ like this
 
 got it?
 
+
+
+
+Date: 07/10/2026
+
+
+Improve the existing **Results Table UI**.
+
+- Center-align all text and values inside table cells, both horizontally and vertically.
+- Center-align the table headers.
+- Fix inconsistent column widths, spacing, padding, and row heights.
+- Improve typography, borders, hover states, and overall visual hierarchy.
+- Ensure numeric and text columns are consistently formatted.
+- Make the table responsive and prevent overflow or broken layouts.
+- Improve the overall appearance to look clean, modern, and production-ready.
+- Reuse the existing application's UI theme/components; do not introduce unnecessary frameworks.
+- Do not change the table's functionality or data logic—focus only on UI/UX improvements.
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+
+------------------------------------------------------------------------------------------------
