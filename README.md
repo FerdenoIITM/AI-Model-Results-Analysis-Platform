@@ -1,113 +1,194 @@
 # AI Model Results Analysis Platform (AMRAP)
 
-Platform for collecting, storing, monitoring, and analyzing results from AI/deep learning models.
+AMRAP is a web platform for collecting, browsing, and analyzing the results produced by AI / deep learning models. Training scripts, notebooks, or any HTTP client submit a model's results as JSON; AMRAP stores them, lets your team filter and compare them in a table, and answers natural-language questions about them using a local LLM (RAG). Everything runs on your own machine — no data leaves it.
 
-## Milestone 3 — Result Ingestion + RAG Chat
+## What you can do
 
-- Machine endpoint `POST /api/results` ingests arbitrary JSON (`X-Ingest-Key`, or a superadmin JWT) → file on disk + metadata row
-- Background worker chunks the JSON, embeds via Ollama, writes into pgvector (`result_chunks`)
-- `POST /api/chat` answers natural-language questions via RAG over the vector store
-- UI: new **Results** page (list + submit + reindex) and **Chat** page (filters + citations)
+### Model Results page
 
-Earlier milestones (still present):
-- Milestone 2: Auth (JWT) and User Management (Superadmin/Admin/Member)
-- Docker Compose runs **api** + **web** + **ollama**; Postgres is your local instance by default
+- **Browse every submitted result** in one table: Model, Version, Iteration, Category, Sub Category, the six performance metrics (Confidence/Accuracy, Sensitivity, Specificity, F1 Score, Recall, Precision), file size, insert time, and vectorization status.
+- **Sort** by any text column, by insert time, or by any metric. Metric headers cycle through ascending → descending → default order, and sorting is numeric.
+- **Filter** with the Filters panel (hidden until you open it):
+  - Model, Category, and Sub Category multi-select dropdowns, filled from the models and categories actually in the database.
+  - Vectorized: All / Yes / No.
+  - Each metric takes an operator (`>`, `>=`, `<`, `<=`) and a value from 0 to 100, plus an optional second condition for ranges, e.g. F1 Score between 80 and 99.
+  - **Clear filters** resets everything at once.
+- Filters, sort, and paging live in the URL, so a filtered view can be bookmarked or shared.
+- **View JSON** shows the raw payload that was submitted for a result.
+- **Submit result** (superadmin) adds a result from the browser.
+- **Reindex vectors** (superadmin) rebuilds the chat's search index from scratch.
 
-## Quick start
+### Ask AMRAP (chat)
 
-1. Make sure your Postgres has `pgvector` installed. Options:
-   - Host Postgres (Debian/Ubuntu): `sudo apt-get install postgresql-16-pgvector`
-   - Or use the containerized DB: `docker compose --profile local-db up db` (image already includes pgvector)
-2. Apply SQL migrations in order (via pgAdmin or `psql`): `V1__init.sql`, `V2__drop_login_lockout.sql`, `V3__results_rag.sql`, `V4__result_metrics.sql` — see [`infra/db/migrations/`](infra/db/migrations/). Seed the first Superadmin (see [`infra/db/seeds/`](infra/db/seeds/)).
-3. Install host tools (Docker) and create `.env` if needed:
+- Ask questions in plain English, e.g. *"Which CardioNet version has the best sensitivity?"* or *"What results do we have from today?"*
+- Answers come with **citations** pointing to the results they were based on.
+- Optionally narrow the search by Model, Version, or Date (All time / Today).
+- Follow-up questions work: the conversation so far is sent along, so "compare them" refers to the previous answer.
+- Answers about many results at once (averages, counts) can be approximate. For exact numbers use the Results table filters.
 
-```bash
-./scripts/install-deps.sh
-# optional local Java/Node: ./scripts/install-deps.sh --with-dev
-```
+### Users and access
 
-4. Edit `.env` with your Postgres credentials, a long `JWT_SECRET`, and a fresh `INGEST_API_KEY`.
-
-5. Choose how to run:
-
-### Day-to-day coding (hot reload) — recommended
-
-```bash
-# Once (host tools for the API):
-sudo apt-get update && sudo apt-get install -y maven inotify-tools
-# or: make deps-dev
-
-make down    # free ports if make up is running
-make dev
-```
-
-- Web: http://localhost:5173 — Vite HMR (uses local `node:20-alpine` image; no Maven image pull)
-- API: http://localhost:8080 — runs on the host with Maven; restarts when you change `.java` files
-- Stop with `Ctrl+C`, or `make dev-down` for the web container
-
-If `make dev-docker` fails with `registry-1.docker.io` DNS timeout, use `make dev` instead (does not need the Maven Docker image). When Docker Hub works, you can optionally use `make dev-docker` for an all-in-Compose setup.
-
-### Packaged run (like a release)
-
-```bash
-make up
-```
-
-Rebuilds Docker images from Dockerfiles. Use this for a production-like check, not for every save.
-
-- Web: http://localhost:5173  
-- API: http://localhost:8080/api  
-
-From Docker, the API reaches host Postgres via `host.docker.internal` (set in compose).
-
-## Local tools without Docker Compose
-
-```bash
-# API
-cd apps/api && mvn -pl api-bootstrap -am spring-boot:run
-
-# Web
-cd apps/web && npm install && npm run dev
-```
-
-For local API on the host, set `POSTGRES_HOST=localhost` in the environment.
-
-## Environments (later)
-
-Today: **dev hot-reload** (`make dev`) vs **packaged** (`make up` / optional `make prod`).
-
-Planned next: separate env configs (e.g. `.env.dev`, `.env.test`, `.env.prod`) and compose overlays for **dev / test / prod** without changing app code. Keep secrets in env files, not in the repo.
-
-## Roles
+Accounts are created by administrators; there is no self sign-up. Login uses JWT.
 
 | Role | User Management | Results & Chat |
 |------|-----------------|----------------|
-| superadmin | Full CRUD (cannot create superadmin via UI/API) | Submit + view + chat + `POST /api/results/reindex` |
-| admin | Members they created only | View + chat |
-| member | No User Management (403 on `/api/users`) | View + chat |
+| superadmin | Create, edit, deactivate, and delete admins and members | View, chat, submit results, reindex |
+| admin | Manage only the members they created | View and chat |
+| member | No access | View and chat |
 
-## RAG workflow
+## How it works
 
-1. **Ingest** — `POST /api/results` with header `X-Ingest-Key: <INGEST_API_KEY>` (normal path for Postman, Python, and other clients) or a superadmin JWT (website fallback) and body `{ modelName, version, payload }`. The server sets `iterationId` to the local time as `yyyyMMddHHmmss`. Admin and member JWTs receive 403. The raw JSON is written to `./data/results/<uuid>.json` and a row is inserted with `is_vectorized=false`.
-2. **Vectorize (automatic)** — The background worker polls every `RAG_WORKER_DELAY_MS`, chunks the JSON, calls Ollama's embedding model (`nomic-embed-text`), writes chunks + vectors into `result_chunks`, and flips the row to `is_vectorized=true`.
-3. **Chat** — `POST /api/chat` with `{ question, modelName?, version?, fromIso?, toIso? }`. The service filters by metadata, runs HNSW similarity in pgvector, and asks the Ollama chat model (`llama3.2:3b`) to answer using the retrieved chunks. Returns `{ answer, citations[] }`.
-4. **Reindex** — Superadmin can call `POST /api/results/reindex` from the Results page: it truncates `result_chunks` and flips every row to `is_vectorized=false`; the worker re-embeds everything.
+```text
+ Training script / Postman / Website
+              │  POST /api/results  (JSON + metrics)
+              ▼
+      ┌───────────────┐   raw JSON file    ┌──────────────────────┐
+      │  Spring Boot  │ ─────────────────▶ │ data/results/<id>.json│
+      │      API      │   metadata row     └──────────────────────┘
+      │               │ ─────────────────▶  PostgreSQL  (results table)
+      └───────────────┘
+              │  background worker (every few seconds)
+              ▼
+   chunk JSON → embed with Ollama (nomic-embed-text) → pgvector (result_chunks)
+              │
+              ▼
+   POST /api/chat → similarity search → Ollama LLM (llama3.2:3b) → answer + citations
+```
 
-First boot downloads the Ollama models (~2 GB for `llama3.2:3b` + ~274 MB for `nomic-embed-text`); progress is in `amrap-ollama-init` logs.
+1. **Ingest:** a client posts a result. The raw JSON is saved to `data/results/<uuid>.json`, and its metadata (model, version, category, metrics) goes into Postgres. The server assigns the iteration ID from the current time (`yyyyMMddHHmmss`).
+2. **Vectorize:** a background worker picks up new results, splits the JSON into chunks, embeds them with Ollama, and stores the vectors in pgvector. The table's Vectorized column switches from *pending* to *yes*.
+3. **Ask:** the chat filters by metadata, finds the most similar chunks, and has the local LLM write an answer using only those chunks.
 
-Example ingest:
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, Vite, React Router |
+| Backend | Java 21, Spring Boot 3, Spring Security (JWT), Spring Data JPA, Spring AI |
+| Database | PostgreSQL 16 with the pgvector extension |
+| LLM / embeddings | Ollama running `llama3.2:3b` (chat) and `nomic-embed-text` (embeddings) |
+| Runtime | Docker Compose (api, web, ollama; optional Postgres and nginx) |
+
+## Project layout
+
+```text
+apps/api/            Spring Boot API (Maven modules: domain, persistence, application, web, security, bootstrap)
+apps/web/            React frontend
+infra/db/migrations/ SQL migrations (applied manually)
+infra/db/seeds/      How to create the first superadmin
+infra/docker/        Dockerfiles and the web nginx config
+packages/openapi/    OpenAPI spec (source of truth for the API)
+docs/                Architecture, data model, and API notes
+scripts/             Setup, hot-reload, and sample-data scripts
+data/results/        Raw result JSON files (bind-mounted into the API container)
+```
+
+## Getting started
+
+### 1. Prerequisites
+
+- Docker with Docker Compose.
+- PostgreSQL 16 with **pgvector**. Use either:
+  - your host Postgres, after `sudo apt-get install postgresql-16-pgvector`, or
+  - the bundled container: `docker compose --profile local-db up -d db`.
+
+`./scripts/install-deps.sh` installs Docker and creates `.env` from `.env.example`. Add `--with-dev` to also install Java and Node for local development.
+
+### 2. Configure
+
+Edit `.env`:
+
+- `POSTGRES_*`: your database connection.
+- `JWT_SECRET`: a long random string.
+- `INGEST_API_KEY`: a fresh secret that scripts use to submit results.
+- `VITE_API_BASE_URL`: the API URL the browser should call (see [Sharing on your network](#sharing-on-your-network)).
+
+### 3. Set up the database
+
+Apply the migrations in order (pgAdmin or `psql`):
+
+1. `infra/db/migrations/V1__init.sql`
+2. `infra/db/migrations/V3__results_rag.sql`
+3. `infra/db/migrations/V4__result_metrics.sql`
+
+Then create the first superadmin by following [`infra/db/seeds/README.md`](infra/db/seeds/README.md).
+
+### 4. Run
+
+**Packaged (production-like):**
+
+```bash
+make up      # builds images and starts api + web + ollama
+make down    # stop
+make logs    # follow logs
+```
+
+- Web: http://localhost:5173
+- API: http://localhost:8080/api
+
+`make up` rebuilds the images, so re-run it after code changes.
+
+**Development (hot reload):**
+
+```bash
+sudo apt-get install -y maven inotify-tools   # once
+make down
+make dev
+```
+
+The web app runs with Vite hot reload on http://localhost:5173. The API runs on the host with Maven and restarts when `.java` files change. Stop it with `Ctrl+C` and `make dev-down`.
+
+On first boot the `amrap-ollama-init` container downloads the models (about 2.3 GB). Chat and vectorization start working once it logs `Models ready.`
+
+## Submitting results
+
+Send `POST /api/results` with the `X-Ingest-Key` header. Only `modelName`, `version`, and `payload` are required. `payload` can be any JSON. Metrics are percentages from 0 to 100.
 
 ```bash
 curl -X POST http://localhost:8080/api/results \
   -H "Content-Type: application/json" \
   -H "X-Ingest-Key: $INGEST_API_KEY" \
   -d '{
-    "modelName": "M1",
-    "version": "1.0.0",
+    "modelName": "CardioNet",
+    "version": "1.2.0",
+    "category": "Cardiology",
+    "subCategory": "Aortic Valve",
+    "confidenceAccuracy": 97.5,
+    "sensitivity": 94.2,
+    "specificity": 98.1,
+    "f1Score": 95.8,
+    "recall": 94.2,
+    "precision": 97.3,
     "payload": {
-      "confidence": 0.93,
-      "classes": ["cat", "dog"],
-      "notes": "trained on 10k images; overfits past epoch 7"
+      "dataset": "echo-valves-v3",
+      "epochs": 40,
+      "notes": "overfits past epoch 30"
     }
   }'
 ```
+
+To load a few demo results:
+
+```bash
+export INGEST_API_KEY=<your key>
+python3 scripts/ingest_sample_results.py
+```
+
+A superadmin can also submit from the website (**Submit result** on the Results page). Admin and member tokens are rejected with 403.
+
+## Sharing on your network
+
+To let other machines on your LAN use the site, set `VITE_API_BASE_URL` in `.env` to your machine's address (for example `http://<your-ip>:8080/api`), then run `make up`. Others open `http://<your-ip>:5173`. The web container's nginx also proxies `/api` to the API, so `VITE_API_BASE_URL=/api` works too.
+
+If your shell already exports `VITE_API_BASE_URL`, it overrides `.env`. Unset it before building.
+
+## API
+
+| Area | Endpoints |
+|------|-----------|
+| Auth | `POST /api/auth/login`, `GET /api/auth/me` |
+| Users | `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/deactivate`, `DELETE /api/users/{id}` |
+| Results | `POST /api/results`, `GET /api/results` (filter, sort, page), `GET /api/results/filter-options`, `GET /api/results/{id}`, `GET /api/results/{id}/payload`, `POST /api/results/reindex` |
+| Chat | `POST /api/chat` |
+
+Details: [`docs/api.md`](docs/api.md) and the OpenAPI spec in [`packages/openapi/openapi.yaml`](packages/openapi/openapi.yaml). See also [`docs/architecture.md`](docs/architecture.md) and [`docs/data-model.md`](docs/data-model.md).
