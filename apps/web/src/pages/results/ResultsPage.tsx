@@ -104,6 +104,7 @@ export function ResultsPage() {
   const [payloadFor, setPayloadFor] = useState<ResultSummary | null>(null);
   const [payloadText, setPayloadText] = useState<string>("");
   const [payloadLoading, setPayloadLoading] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const canReindex = user?.role === "superadmin";
   const canSubmit = user?.role === "superadmin";
@@ -111,6 +112,13 @@ export function ResultsPage() {
   const results = pageData?.results ?? [];
   const total = pageData?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
+  const activeFilterCount =
+    (query.modelName ? 1 : 0) +
+    (query.version ? 1 : 0) +
+    (query.vectorized !== "all" ? 1 : 0) +
+    (query.categories.length > 0 ? 1 : 0) +
+    (query.subCategories.length > 0 ? 1 : 0) +
+    Object.keys(query.metrics).length;
 
   function commitQuery(next: ResultsQuery, resetPage: boolean) {
     setParams(serializeResultsQuery(resetPage ? { ...next, page: 1 } : next));
@@ -295,7 +303,55 @@ export function ResultsPage() {
       {error ? <p className="error">{error}</p> : null}
       {info ? <p className="muted">{info}</p> : null}
 
-      <div className="filter-bar">
+      <div className="pager">
+        <h2>
+          Results ({total})
+        </h2>
+        <button
+          type="button"
+          className={filtersOpen ? "btn ghost filters-toggle open" : "btn ghost filters-toggle"}
+          aria-expanded={filtersOpen}
+          aria-controls="results-filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          Filters
+          {activeFilterCount > 0 ? <span className="filters-count">{activeFilterCount}</span> : null}
+        </button>
+        <span className="muted">
+          {loading ? "Loading…" : `Page ${query.page} of ${pageCount}`}
+        </span>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={query.page <= 1 || loading}
+          onClick={() => commitQuery({ ...query, page: query.page - 1 }, false)}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={query.page >= pageCount || loading}
+          onClick={() => commitQuery({ ...query, page: query.page + 1 }, false)}
+        >
+          Next
+        </button>
+        <label className="page-size">
+          Page size
+          <select
+            value={query.pageSize}
+            onChange={(e) => commitQuery({ ...query, pageSize: Number(e.target.value) }, true)}
+          >
+            {pageSizes.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div id="results-filters" className="filter-bar" hidden={!filtersOpen}>
         <div className="grid">
           <label>
             Model
@@ -349,44 +405,6 @@ export function ResultsPage() {
             />
           ))}
         </div>
-      </div>
-
-      <div className="pager">
-        <h2>
-          Results ({total})
-        </h2>
-        <span className="muted">
-          {loading ? "Loading…" : `Page ${query.page} of ${pageCount}`}
-        </span>
-        <button
-          type="button"
-          className="btn ghost"
-          disabled={query.page <= 1 || loading}
-          onClick={() => commitQuery({ ...query, page: query.page - 1 }, false)}
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          disabled={query.page >= pageCount || loading}
-          onClick={() => commitQuery({ ...query, page: query.page + 1 }, false)}
-        >
-          Next
-        </button>
-        <label className="page-size">
-          Page size
-          <select
-            value={query.pageSize}
-            onChange={(e) => commitQuery({ ...query, pageSize: Number(e.target.value) }, true)}
-          >
-            {pageSizes.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       <div className={loading ? "table-wrap results-table-wrap is-loading" : "table-wrap results-table-wrap"}>

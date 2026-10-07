@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/AuthContext";
 import { ChatPage } from "../pages/chat/ChatPage";
 
@@ -15,10 +15,20 @@ export function AppShell() {
           <Link to="/">AMRAP</Link>
         </div>
         <nav className="nav">
-          <Link to="/">Dashboard</Link>
-          <Link to="/results">Results</Link>
-          <Link to="/chat">Chat</Link>
-          {canManageUsers ? <Link to="/users">User Management</Link> : null}
+          <NavLink to="/" end className="nav-link">
+            Dashboard
+          </NavLink>
+          <NavLink to="/results" className="nav-link">
+            Results
+          </NavLink>
+          <NavLink to="/chat" className="nav-link">
+            Chat
+          </NavLink>
+          {canManageUsers ? (
+            <NavLink to="/users" className="nav-link">
+              User Management
+            </NavLink>
+          ) : null}
         </nav>
         <div className="user-meta">
           <span>

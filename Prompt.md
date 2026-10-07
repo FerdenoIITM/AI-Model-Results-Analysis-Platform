@@ -1821,15 +1821,34 @@ Do not modify the existing sorting functionality for other columns.
 
 ------------------------------------------------------------------------------------------------
 
+Modify the Results page filter UI.
 
+- Do not show the filter panel automatically when opening the Results page.
+- Add a **"Filters"** button near the Results table/header.
+- Clicking the button should open/show the existing filter panel.
+- Clicking it again should hide/close the filter panel.
+- Keep all existing filter functionality unchanged.
+- The filter panel should not affect or break the existing table layout when opened or closed.
 
 ------------------------------------------------------------------------------------------------
 
+Natural-language questions over your ingested model results. Answers come from a RAG pipeline: embeddings + a local Ollama LLM. Aggregates across many results may be approximate; exact filters (model / version / date) are reliable. 
 
+remove these from the chat window 
 
 ------------------------------------------------------------------------------------------------
 
+Update the top navigation/header UI so the **currently active page is clearly highlighted**.
 
+Apply the active-state styling consistently to:
+
+- Dashboard
+- Results
+- User Management
+
+For example, when the user is on the **Results** page, the Results navigation item should be visibly highlighted to clearly indicate **where the user currently is**.
+
+Use the existing application's theme and navigation style. Ensure the active state updates automatically based on the current route/page.
 
 ------------------------------------------------------------------------------------------------
 

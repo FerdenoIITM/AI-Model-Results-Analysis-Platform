@@ -135,12 +135,6 @@ export function ChatPage() {
         </button>
       </div>
 
-      <p className="muted">
-        Natural-language questions over your ingested model results. Answers come from a RAG
-        pipeline: embeddings + a local Ollama LLM. Aggregates across many results may be
-        approximate; exact filters (model / version / date) are reliable.
-      </p>
-
       <div className="grid">
         <label>
           Model
