@@ -322,6 +322,47 @@ td {
   margin-top: 0.35rem;
 }
 
+.modal-scrollable {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.modal-scrollable > h2 {
+  flex-shrink: 0;
+}
+
+.modal-scrollable .modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+}
+
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding: 0.25rem 0.15rem 1rem;
+}
+
+.modal-scrollable .modal-actions {
+  flex-shrink: 0;
+  margin: 0 -1.35rem;
+  padding: 0.85rem 1.35rem 1.1rem;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 0 0 16px 16px;
+}
+
 .modal-actions-spread {
   justify-content: space-between;
   align-items: center;
@@ -836,6 +877,15 @@ code {
   }
   .panel-wide {
     padding: 1rem;
+  }
+  .modal-scrollable {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .modal-scrollable .modal-actions {
+    margin: 0 -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
   .results-table th,
   .results-table td {

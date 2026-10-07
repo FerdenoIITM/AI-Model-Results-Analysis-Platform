@@ -1786,7 +1786,15 @@ Improve the existing **Results Table UI**.
 
 ------------------------------------------------------------------------------------------------
 
+Fix the **Submit Results popup/modal UI**.
 
+- The modal is too tall, causing the **Submit** and **Cancel** buttons to become unreachable at normal browser zoom.
+- Make the modal responsive to the viewport height.
+- Keep the **Submit** and **Cancel** buttons always visible and accessible without requiring users to zoom out.
+- If the content exceeds the viewport, make only the modal content area scrollable.
+- Keep the action buttons fixed/sticky at the bottom of the modal.
+- Ensure the modal works properly at different browser zoom levels and screen resolutions.
+- Do not change the existing functionality or form fields; fix only the modal layout and usability.
 
 ------------------------------------------------------------------------------------------------
 

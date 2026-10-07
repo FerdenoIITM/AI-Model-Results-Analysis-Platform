@@ -460,7 +460,7 @@ export function ResultsPage() {
           onClick={() => (creating ? undefined : setCreateOpen(false))}
         >
           <div
-            className="modal modal-wide"
+            className="modal modal-wide modal-scrollable"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-result-title"
@@ -468,87 +468,89 @@ export function ResultsPage() {
           >
             <h2 id="create-result-title">Submit model result</h2>
             <form className="modal-form" onSubmit={onCreate}>
-              <fieldset className="form-section">
-                <legend>Metadata</legend>
-                <div className="grid">
-                  <label>
-                    Model name
-                    <input
-                      value={form.modelName}
-                      onChange={(e) => setForm((f) => ({ ...f, modelName: e.target.value }))}
-                      required
+              <div className="modal-body">
+                <fieldset className="form-section">
+                  <legend>Metadata</legend>
+                  <div className="grid">
+                    <label>
+                      Model name
+                      <input
+                        value={form.modelName}
+                        onChange={(e) => setForm((f) => ({ ...f, modelName: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Version
+                      <input
+                        value={form.version}
+                        onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Category
+                      <input
+                        value={form.category}
+                        onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Sub category
+                      <input
+                        value={form.subCategory}
+                        onChange={(e) => setForm((f) => ({ ...f, subCategory: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <MetricInput
+                      label="Confidence/Accuracy"
+                      value={form.confidenceAccuracy}
+                      onChange={(value) => setForm((f) => ({ ...f, confidenceAccuracy: value }))}
                     />
-                  </label>
-                  <label>
-                    Version
-                    <input
-                      value={form.version}
-                      onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))}
-                      required
+                    <MetricInput
+                      label="Sensitivity"
+                      value={form.sensitivity}
+                      onChange={(value) => setForm((f) => ({ ...f, sensitivity: value }))}
                     />
-                  </label>
-                  <label>
-                    Category
-                    <input
-                      value={form.category}
-                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                      required
+                    <MetricInput
+                      label="Specificity"
+                      value={form.specificity}
+                      onChange={(value) => setForm((f) => ({ ...f, specificity: value }))}
                     />
-                  </label>
-                  <label>
-                    Sub category
-                    <input
-                      value={form.subCategory}
-                      onChange={(e) => setForm((f) => ({ ...f, subCategory: e.target.value }))}
-                      required
+                    <MetricInput
+                      label="F1 Score"
+                      value={form.f1Score}
+                      onChange={(value) => setForm((f) => ({ ...f, f1Score: value }))}
                     />
-                  </label>
-                  <MetricInput
-                    label="Confidence/Accuracy"
-                    value={form.confidenceAccuracy}
-                    onChange={(value) => setForm((f) => ({ ...f, confidenceAccuracy: value }))}
+                    <MetricInput
+                      label="Recall"
+                      value={form.recall}
+                      onChange={(value) => setForm((f) => ({ ...f, recall: value }))}
+                    />
+                    <MetricInput
+                      label="Precision"
+                      value={form.precision}
+                      onChange={(value) => setForm((f) => ({ ...f, precision: value }))}
+                    />
+                  </div>
+                </fieldset>
+                <fieldset className="form-section">
+                  <legend>Payload (JSON)</legend>
+                  <textarea
+                    className="json-textarea"
+                    value={form.payload}
+                    onChange={(e) => setForm((f) => ({ ...f, payload: e.target.value }))}
+                    rows={12}
+                    required
                   />
-                  <MetricInput
-                    label="Sensitivity"
-                    value={form.sensitivity}
-                    onChange={(value) => setForm((f) => ({ ...f, sensitivity: value }))}
-                  />
-                  <MetricInput
-                    label="Specificity"
-                    value={form.specificity}
-                    onChange={(value) => setForm((f) => ({ ...f, specificity: value }))}
-                  />
-                  <MetricInput
-                    label="F1 Score"
-                    value={form.f1Score}
-                    onChange={(value) => setForm((f) => ({ ...f, f1Score: value }))}
-                  />
-                  <MetricInput
-                    label="Recall"
-                    value={form.recall}
-                    onChange={(value) => setForm((f) => ({ ...f, recall: value }))}
-                  />
-                  <MetricInput
-                    label="Precision"
-                    value={form.precision}
-                    onChange={(value) => setForm((f) => ({ ...f, precision: value }))}
-                  />
-                </div>
-              </fieldset>
-              <fieldset className="form-section">
-                <legend>Payload (JSON)</legend>
-                <textarea
-                  className="json-textarea"
-                  value={form.payload}
-                  onChange={(e) => setForm((f) => ({ ...f, payload: e.target.value }))}
-                  rows={12}
-                  required
-                />
-                <p className="muted">
-                  The full JSON is stored verbatim on disk under <code>data/results/</code>. Category,
-                  subcategory, and metrics are stored on the result row as percentage points from 0 to 100.
-                </p>
-              </fieldset>
+                  <p className="muted">
+                    The full JSON is stored verbatim on disk under <code>data/results/</code>. Category,
+                    subcategory, and metrics are stored on the result row as percentage points from 0 to 100.
+                  </p>
+                </fieldset>
+              </div>
               <div className="modal-actions">
                 <button
                   type="button"
