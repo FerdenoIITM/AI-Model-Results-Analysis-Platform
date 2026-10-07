@@ -1798,7 +1798,26 @@ Fix the **Submit Results popup/modal UI**.
 
 ------------------------------------------------------------------------------------------------
 
+Add column sorting to the results table for these newly added numeric columns:
 
+- Confidence/Accuracy
+- Sensitivity
+- Specificity
+- F1 Score
+- Recall
+- Precision
+
+Use the **same sorting behavior and UI pattern as the existing sortable columns**.
+
+When the user clicks a column header, support:
+
+- Ascending order
+- Descending order
+- Existing/default sort behavior
+
+Ensure sorting is performed using the **numeric values**, not string comparison.
+
+Do not modify the existing sorting functionality for other columns.
 
 ------------------------------------------------------------------------------------------------
 

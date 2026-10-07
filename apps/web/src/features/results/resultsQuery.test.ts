@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SORT,
+  cycleSort,
   emptyResultsQuery,
   metricFilterError,
   parseResultsQuery,
@@ -51,5 +53,14 @@ describe("resultsQuery", () => {
     expect(toggleSort("-insertedAt", "insertedAt", false)).toBe("insertedAt");
     expect(toggleSort("insertedAt", "insertedAt", false)).toBe("-insertedAt");
     expect(toggleSort("-insertedAt", "confidenceAccuracy", true)).toBe("-confidenceAccuracy");
+  });
+
+  it("cycles metric sort ascending, descending, then default", () => {
+    const first = cycleSort(DEFAULT_SORT, "f1Score");
+    const second = cycleSort(first, "f1Score");
+    const third = cycleSort(second, "f1Score");
+    expect([first, second, third]).toEqual(["f1Score", "-f1Score", DEFAULT_SORT]);
+    expect(cycleSort("-recall", "precision")).toBe("precision");
+    expect(serializeResultsQuery({ ...emptyResultsQuery(), sort: third }).has("sort")).toBe(false);
   });
 });

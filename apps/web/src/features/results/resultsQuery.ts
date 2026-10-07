@@ -172,6 +172,13 @@ export function toggleSort(current: string, field: string, preferDesc: boolean):
   return preferDesc ? `-${field}` : field;
 }
 
+/** Ascending, then descending, then back to the default sort. */
+export function cycleSort(current: string, field: string): string {
+  if (current === field) return `-${field}`;
+  if (current === `-${field}`) return DEFAULT_SORT;
+  return field;
+}
+
 function numberError(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return "Enter a number";

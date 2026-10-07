@@ -4,6 +4,7 @@ import { MultiSelectFilter } from "../../features/results/MultiSelectFilter";
 import { NumericFilter } from "../../features/results/NumericFilter";
 import {
   METRIC_FIELDS,
+  cycleSort,
   parseResultsQuery,
   serializeResultsQuery,
   toggleSort,
@@ -403,7 +404,7 @@ export function ResultsPage() {
                   label={field.label}
                   field={field.key}
                   sort={query.sort}
-                  onSort={(name) => commitQuery({ ...query, sort: toggleSort(query.sort, name, true) }, true)}
+                  onSort={(name) => commitQuery({ ...query, sort: cycleSort(query.sort, name) }, true)}
                 />
               ))}
               <th>Size</th>
