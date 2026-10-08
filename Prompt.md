@@ -1862,7 +1862,210 @@ Add a **"Clear Filters"** button to the Results page.
 
 ------------------------------------------------------------------------------------------------
 
+Implement a **complete automated test suite for the entire application** covering **Frontend, Backend, API, and Database**.
 
+Use the existing project structure and technology stack. Do not change application functionality just to make tests pass.
+
+### Test structure
+
+Create a proper test structure under:
+
+```text
+test/
+```
+
+or use the project's existing testing convention if one already exists.
+
+Organize tests logically, for example:
+
+```text
+test/
+├── frontend/
+├── backend/
+├── api/
+├── database/
+├── integration/
+└── e2e/
+```
+
+Adjust this structure to match the existing project.
+
+### Features to test
+
+Cover all existing functionality, especially:
+
+- Dashboard
+- Results
+- User Management
+- Result submission
+- Results table
+- Model filter
+- Category/Sub Category filters
+- Numeric filters
+- `=`, `>`, `<`, `>=`, `<=`
+- Numeric ranges
+- Multiple filter combinations
+- Clear Filters
+- Sorting
+- Pagination
+- Active navigation highlighting
+- Submit/Cancel modal
+- API communication
+- Database operations
+
+### Do not test only happy paths
+
+For every important feature include:
+
+- Valid input
+- Invalid input
+- Empty input
+- Null values
+- Boundary values
+- Incorrect data types
+- Duplicate data
+- Large datasets
+- No matching results
+- API failures
+- Database failures
+- Network failures
+- Unauthorized/forbidden access where applicable
+- Concurrent operations where applicable
+
+### Results/filter testing
+
+Specifically test:
+
+- Dynamic Model dropdown values come from DB
+- Category/Sub Category values come from DB
+- Version filter is removed
+- All numeric filters
+- Numeric comparison operators
+- Numeric ranges
+- Invalid ranges (`min > max`)
+- Combining multiple filters
+- Clear Filters resets everything
+- Filtering + sorting
+- Filtering + pagination
+- Numeric sorting rather than string sorting
+- Empty result sets
+- Large result sets
+
+### Database tests
+
+Test:
+
+- Schema/migrations
+- Required fields
+- Data types
+- Constraints
+- Invalid data
+- Duplicate data
+- Null handling
+- Index/query behavior
+- Filtering queries
+- Sorting queries
+- Pagination queries
+- Data integrity
+
+### API tests
+
+Test:
+
+- Successful requests
+- Invalid requests
+- Missing fields
+- Invalid types
+- Invalid filters/operators
+- Invalid ranges
+- Authentication/authorization
+- Correct HTTP status codes
+- Correct response structure
+- Error handling
+- Database/API failures
+
+### Frontend tests
+
+Test:
+
+- Components render correctly
+- API data is displayed correctly
+- Loading state
+- Empty state
+- Error state
+- Filters
+- Sorting
+- Pagination
+- Clear Filters
+- Modal behavior
+- Navigation
+- Active-page highlighting
+- User interactions
+
+### Integration/E2E tests
+
+Verify the complete flow:
+
+```text
+Frontend
+   ↓
+API
+   ↓
+Backend
+   ↓
+Database
+```
+
+For example:
+
+```text
+Select Model
+→ Apply Category
+→ Apply Confidence >= 95
+→ Submit filter
+→ Backend queries DB
+→ Correct results returned
+→ UI displays results
+→ Sort results
+→ Clear filters
+→ All results displayed
+```
+
+### Makefile
+
+Implement/update the Makefile so:
+
+```bash
+make test
+```
+
+runs the complete test suite and returns:
+
+- Clear test results
+- Passed/failed count
+- Coverage where supported
+- Non-zero exit code when any required test fails
+
+Optionally provide:
+
+```bash
+make test-frontend
+make test-backend
+make test-api
+make test-db
+make test-integration
+make test-e2e
+```
+
+### Important
+
+First inspect the existing application and identify the actual frontend framework, backend framework, database, API structure, and existing test setup.
+
+Then implement the tests using the appropriate testing tools already used by the project.
+
+Do not create fake tests that only mock everything. Use real database/API integration tests where appropriate.
+
+The final test suite should make the application **robust, regression-resistant, and production-ready**, including failure and edge cases—not just the happy path.
 
 ------------------------------------------------------------------------------------------------
 
