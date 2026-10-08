@@ -81,6 +81,7 @@ packages/openapi/    OpenAPI spec (source of truth for the API)
 docs/                Architecture, data model, and API notes
 scripts/             Setup, hot-reload, and sample-data scripts
 data/results/        Raw result JSON files (bind-mounted into the API container)
+test/                Cross-stack tests: database SQL, API black-box, Playwright E2E, test stack, runner
 ```
 
 ## Getting started
@@ -178,9 +179,34 @@ A superadmin can also submit from the website (**Submit result** on the Results 
 
 ## Sharing on your network
 
-To let other machines on your LAN use the site, set `VITE_API_BASE_URL` in `.env` to your machine's address (for example `http://<your-ip>:8080/api`), then run `make up`. Others open `http://<your-ip>:5173`. The web container's nginx also proxies `/api` to the API, so `VITE_API_BASE_URL=/api` works too.
+To let other machines on your LAN use the site, set `VITE_API_BASE_URL` in `.env` to your machine's address (for example `http://<your-ip>:8080/api`), then run `make up`. Others open `http://<your-ip>:5173`. The web container's nginx only serves the built site; it does not proxy `/api`, so the URL must point at the API itself.
 
 If your shell already exports `VITE_API_BASE_URL`, it overrides `.env`. Unset it before building.
+
+## Testing
+
+Run everything with:
+
+```bash
+make test
+```
+
+You need Docker, Java 21 and Maven. Node is not needed on the host: frontend, API and E2E tests run in containers. The first run downloads images and dependencies, so it is slow; later runs reuse caches.
+
+`make test` runs six suites, prints a table of passed, failed and skipped tests with coverage locations, and exits non-zero if anything fails. Logs and reports go to `test/reports/`.
+
+| Target | What it tests | Where the tests live |
+|--------|---------------|----------------------|
+| `make test-frontend` | React pages and components with mocked HTTP (Vitest, Testing Library, MSW), plus a type-check | `apps/web/src/**/*.test.ts(x)` |
+| `make test-backend` | Services, filter parsing, JWT and auth filters (JUnit, Mockito) | `apps/api/*/src/test/java/**/*Test.java` |
+| `make test-integration` | The Spring app against real Postgres + pgvector (Testcontainers): repository queries, every endpoint, security, database failure, concurrency | `apps/api/api-bootstrap/src/test/java/**/*IT.java` |
+| `make test-db` | The SQL schema directly: constraints, foreign keys, the trigger, indexes, and filter/sort/paging on 10,000 rows | `test/database/` |
+| `make test-api` | The running API over HTTP: status codes, response shapes, role matrix, invalid input, CORS, chat without an LLM | `test/api/` |
+| `make test-e2e` | The site in Chromium (Playwright): the results filter flow, sorting, pagination, Clear filters, the submit modal, navigation, user management, chat errors | `test/e2e/` |
+
+`test-api` and `test-e2e` start an isolated stack from `test/docker-compose.test.yml` (compose project `amrap-test`, ports 15432, 18080 and 18081). It has its own database on tmpfs, test-only accounts from `test/fixtures/seed.sql`, and no Ollama, so your normal data and containers are never touched. The stack is torn down afterwards; use `KEEP_STACK=1 make test-e2e` to keep it, or `make test-stack-up` / `make test-stack-down` to manage it yourself.
+
+Coverage reports: `apps/web/coverage/index.html` (frontend) and `apps/api/api-bootstrap/target/site/jacoco-aggregate/index.html` (backend unit + integration).
 
 ## API
 

@@ -40,3 +40,6 @@ docker-data/
 *.bak
 coverage/
 .turbo/
+
+# Test reports
+test/reports/

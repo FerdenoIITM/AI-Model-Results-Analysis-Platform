@@ -7,9 +7,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.hibernate.query.NullPrecedence;
+import org.hibernate.query.criteria.JpaOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +30,27 @@ public class ResultRepository {
     }
 
     public ResultPage search(ResultFilter filter) {
-        Sort.Order order = new Sort.Order(
-                filter.sortDescending() ? Sort.Direction.DESC : Sort.Direction.ASC,
-                filter.sortProperty(),
-                Sort.NullHandling.NULLS_LAST);
         Page<ResultEntity> page = jpa.findAll(
-                ResultSpecifications.from(filter),
-                PageRequest.of(filter.page() - 1, filter.pageSize(), Sort.by(order)));
+                ResultSpecifications.from(filter).and(orderedNullsLast(filter.sortProperty(), filter.sortDescending())),
+                PageRequest.of(filter.page() - 1, filter.pageSize()));
         List<Result> results = page.getContent().stream().map(ResultMapper::toDomain).toList();
         return new ResultPage(results, page.getTotalElements(), filter.page(), filter.pageSize());
+    }
+
+    /**
+     * Spring Data ignores {@link Sort.NullHandling} for Criteria queries and Postgres sorts NULLs
+     * first when descending, so the order is applied here. The id tie-breaker keeps pages stable
+     * when many rows share a value.
+     */
+    private static Specification<ResultEntity> orderedNullsLast(String property, boolean descending) {
+        return (root, query, cb) -> {
+            Class<?> resultType = query.getResultType();
+            if (resultType != Long.class && resultType != long.class) {
+                JpaOrder primary = (JpaOrder) (descending ? cb.desc(root.get(property)) : cb.asc(root.get(property)));
+                query.orderBy(primary.nullPrecedence(NullPrecedence.LAST), cb.asc(root.get("id")));
+            }
+            return null;
+        };
     }
 
     public List<String> findDistinctModelNames() {

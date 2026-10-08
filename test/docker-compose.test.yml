@@ -1,0 +1,76 @@
+# Isolated stack for API and end-to-end tests (compose project "amrap-test").
+# Own database on tmpfs, own ports, no Ollama: the API points at an unreachable LLM URL,
+# so chat must fail cleanly and the vectorization worker never runs during a test session.
+# Start/stop with `make test-stack-up` / `make test-stack-down`.
+name: amrap-test
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: amrap
+      POSTGRES_USER: amrap
+      POSTGRES_PASSWORD: amrap-test-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ../infra/db/migrations:/migrations:ro
+      - ./fixtures/seed.sql:/seed/seed.sql:ro
+      - ./stack/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh:ro
+    ports:
+      - "${TEST_DB_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U amrap -d amrap"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  api:
+    image: eclipse-temurin:21-jre-alpine
+    command: ["java", "-jar", "/app/app.jar"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: amrap
+      POSTGRES_USER: amrap
+      POSTGRES_PASSWORD: amrap-test-only
+      JWT_SECRET: amrap-test-stack-jwt-secret-at-least-32-characters
+      JWT_EXPIRATION_MS: 3600000
+      OLLAMA_BASE_URL: http://127.0.0.1:9
+      RESULTS_STORAGE_DIR: /var/amrap/results
+      INGEST_API_KEY: amrap-test-ingest-key
+      RAG_WORKER_DELAY_MS: 86400000
+    tmpfs:
+      - /var/amrap/results:uid=0,mode=1777
+    volumes:
+      - ../apps/api/api-bootstrap/target/api-bootstrap-0.1.0-SNAPSHOT.jar:/app/app.jar:ro
+    ports:
+      - "${TEST_API_PORT:-18080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    image: amrap-test-web
+
+  gateway:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./stack/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${TEST_WEB_PORT:-18081}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started

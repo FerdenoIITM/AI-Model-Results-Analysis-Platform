@@ -57,6 +57,10 @@ public class ResultController {
         if (actor.getRole() != UserRole.SUPERADMIN) {
             throw new AppException(403, "Only superadmin can submit results");
         }
+        // Jackson maps a JSON null to NullNode, which slips past @NotNull.
+        if (request.payload() == null || request.payload().isNull()) {
+            throw new AppException(400, "payload is required");
+        }
         String rawJson;
         try {
             rawJson = objectMapper.writeValueAsString(request.payload());
