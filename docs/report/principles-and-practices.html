@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AMRAP - Principles and Practices Document</title>
+<style>
+  @page { size: A4; margin: 13mm 14mm 13mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.4; color: #1b1f24; margin: 0; }
+  h1 { font-size: 15.5pt; margin: 0 0 1mm; color: #0b3d6e; }
+  h2 { font-size: 11.3pt; margin: 3.4mm 0 1.2mm; padding-bottom: 0.6mm; border-bottom: 1.2px solid #0b3d6e; color: #0b3d6e; }
+  h3 { font-size: 10pt; margin: 2.2mm 0 0.8mm; color: #22303d; }
+  p { margin: 0 0 1.5mm; }
+  ul, ol { margin: 0 0 1.5mm; padding-left: 5mm; }
+  li { margin: 0 0 0.6mm; }
+  code { font-family: "Liberation Mono", Consolas, monospace; font-size: 8.6pt; background: #eef2f6; padding: 0 2px; border-radius: 2px; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 2mm; font-size: 9.2pt; }
+  th, td { border: 1px solid #c5ced8; padding: 1mm 1.6mm; vertical-align: top; text-align: left; }
+  th { background: #e6edf4; }
+  .meta { display: flex; justify-content: space-between; font-size: 9pt; color: #44505c; border-bottom: 2px solid #0b3d6e; padding-bottom: 1.6mm; margin-bottom: 1mm; }
+  .meta div { line-height: 1.45; }
+  .muted { color: #55606b; }
+  .num { text-align: right; white-space: nowrap; }
+  .flow { font-family: "Liberation Mono", monospace; font-size: 8.6pt; background: #f4f7fa; border: 1px solid #d6dee6; padding: 1.2mm 2mm; margin: 1mm 0 1.8mm; }
+  .appendix { break-before: page; }
+  .prompt { border-left: 3px solid #0b3d6e; background: #f6f8fa; padding: 1.4mm 2.4mm; margin: 1mm 0 1.2mm; font-family: "Liberation Mono", monospace; font-size: 8.1pt; line-height: 1.32; white-space: pre-wrap; }
+  .why { font-size: 8.9pt; margin: 0 0 2.4mm; }
+  .log { font-family: "Liberation Mono", monospace; font-size: 8pt; white-space: pre-wrap; background: #f6f8fa; border: 1px solid #d6dee6; padding: 1.6mm 2.4mm; }
+</style>
+</head>
+<body>
+
+<h1>Principles &amp; Practices Document: AI Model Results Analysis Platform (AMRAP)</h1>
+<div class="meta">
+  <div><strong>Course:</strong> CS5013 PAI &nbsp;|&nbsp; Pre-Evaluation Deliverable<br>
+       <strong>Name:</strong> Ferdeno &nbsp;|&nbsp; <strong>Roll No:</strong> EE26S062</div>
+  <div style="text-align:right"><strong>Date:</strong> 08 October 2026<br>
+       <strong>Repository:</strong> github.com/FerdenoIITM/AI-Model-Results-Analysis-Platform (branch <code>dev</code>)</div>
+</div>
+
+<h2>1. Project at a Glance</h2>
+<p>AMRAP stores AI model evaluation results, lets users filter, sort and page through them, and answers natural-language
+questions about them. External clients submit results (raw JSON plus metadata such as category and six metrics) to an
+ingest API. The JSON is written to disk, the metadata to PostgreSQL, and a background worker embeds the content into
+<strong>pgvector</strong> so a local <strong>Ollama</strong> LLM can answer questions with retrieval-augmented generation (RAG).
+The stack is Spring Boot 3 (Java 21, multi-module Maven), React 18 + Vite, PostgreSQL 16 and Docker Compose, with
+role-based access (superadmin, admin, member) secured by JWT. The project was built over three weeks (20 Sep to 8 Oct 2026)
+with an AI coding assistant. The practices below are how I kept that collaboration correct, traceable and maintainable.</p>
+
+<h2>2. Prompt Engineering</h2>
+<p>My prompts evolved from open questions ("how should I organize a website?") into <strong>specifications</strong> that a
+coding agent can execute and that I can check. The principles I apply, each with a real example from
+<code>Prompt.md</code> (samples in Appendix A):</p>
+<table>
+  <tr><th style="width:23%">Principle</th><th style="width:38%">How I apply it</th><th>Example from my prompts</th></tr>
+  <tr><td><strong>Ground in the real code</strong></td><td>Ask the agent to inspect files before proposing anything; name exact paths and terminal line ranges.</td><td>"First inspect the actual folders and files. Do not assume the architecture." / "In terminals/4.txt lines 98-105, why is the container restarting?"</td></tr>
+  <tr><td><strong>Decompose incrementally</strong></td><td>One concern per prompt, in dependency order: schema, then API, then UI, then tests.</td><td>"Do not jump directly into the complete application. For now, focus only on the database design and schema."</td></tr>
+  <tr><td><strong>Structured template (C-O-O-S-T-A-R)</strong></td><td>Context, Objective, Output, Style, Tone, Audience, Response constraints. Each section removes a class of ambiguity.</td><td>Superadmin-only result submission and chat follow-up history prompts (Appendix A.4).</td></tr>
+  <tr><td><strong>Negative constraints and scope</strong></td><td>List what must <em>not</em> change, and ask for the smallest possible change, to stop unrelated refactors.</td><td>"Do not refactor unrelated code." "Make the smallest possible change required to persist the existing chat state."</td></tr>
+  <tr><td><strong>Explicit acceptance criteria</strong></td><td>End with a "Done when" list I can verify by hand or with tests.</td><td>"Done when: ... Admin and member do not see Submit result, and their JWT gets 403 from POST /api/results."</td></tr>
+  <tr><td><strong>Explain before fixing</strong></td><td>For bugs and unfamiliar concepts, first ask for the cause, then restate my understanding to confirm it.</td><td>"First explain the problem - do not jump to the fix." / "So you are saying ... Is that correct?"</td></tr>
+  <tr><td><strong>Plan, then implement</strong></td><td>Large features start in plan mode; the agent asks clarifying questions and I approve a written plan before code changes.</td><td>"Give me a plan for implementing this using RAG." The RAG feature and the test suite were both planned and approved before any code.</td></tr>
+</table>
+
+<h2>3. Debugging</h2>
+<p>I follow the same loop for every issue, whether it comes from a terminal, the browser or a failing test:</p>
+<div class="flow">1 Reproduce  -&gt;  2 Collect evidence (exact log lines, status codes)  -&gt;  3 Explain the cause before any fix  -&gt;
+4 Confirm the hypothesis  -&gt;  5 Apply the smallest fix  -&gt;  6 Verify, then add a regression test</div>
+<table>
+  <tr><th style="width:24%">Issue</th><th style="width:40%">Evidence and diagnosis</th><th>Fix and verification</th></tr>
+  <tr><td>API container in a restart loop</td><td>Read the container logs by line range: the API could not reach PostgreSQL. Asked for an explanation first: Postgres ran on the host and the API in Docker, so they sat in different network namespaces and Postgres listened only on localhost.</td><td>Point the API at <code>host.docker.internal</code> (mapped to <code>host-gateway</code> in Compose) and let host Postgres accept connections from Docker; confirmed by re-reading the logs until the container stayed healthy.</td></tr>
+  <tr><td>Wrong status codes and sort order found by the new tests</td><td>Integration tests showed 403 instead of 401 without a token, 500 for a malformed UUID or unknown route, nulls first in descending sort, and 500 for two simultaneous creates with the same email.</td><td>Minimal fixes: a JSON 401 entry point, exception-to-status mapping, NULLS LAST with an id tie-breaker, unique-violation to 409. Each fix is now held by a test.</td></tr>
+  <tr><td>Flaky end-to-end pagination test</td><td>Page 2 "overlapped" page 1. Traced it to two causes: the page renders once with the new page number before loading starts, and iteration IDs are second-resolution timestamps, so they are not unique.</td><td>Wait for the actual <code>GET /api/results</code> response; identify rows by model+version. Repeated the read-only specs 3 times (42 runs, all stable).</td></tr>
+</table>
+<p>Two habits make this reliable: I quote exact evidence (file and line range) instead of describing symptoms, and I
+check a fix catches the bug by breaking the code on purpose (for example, disabling the Clear Filters reset made its test fail).</p>
+
+<h2>4. Version Control with Git (Code and Prompts)</h2>
+<ul>
+  <li><strong>Branches and remote:</strong> all development happens on <code>dev</code> (28 commits, pushed to GitHub); <code>main</code> is kept for a
+      stable, evaluated version and currently holds only the initial commit.</li>
+  <li><strong>Feature-sized commits with descriptive messages</strong> that say what changed and why, for example
+      <em>"Add column sorting functionality to results table ... Ensure sorting uses numeric values and does not affect existing column sorting"</em>. Each commit maps to one prompt or feature, so the
+      history doubles as a changelog (Appendix B).</li>
+  <li><strong>Prompts are versioned with the code.</strong> <code>Prompt.md</code> (about 2,000 lines, 9 dated sections) records every prompt I gave the
+      assistant. It changed in 14 commits, usually <em>the same commit as the code it produced</em> (for example, the filtering
+      feature commit added both the code and its 680-line prompt). <code>git log -p Prompt.md</code> shows how my prompting
+      evolved, and <code>git blame</code> links any feature to the prompt that requested it. I refactored the file once (5 Oct) to remove
+      duplicated entries.</li>
+  <li><strong>Secrets stay out of git:</strong> <code>.env</code> is ignored and <code>.env.example</code> documents every variable with safe placeholders;
+      build output, <code>node_modules</code>, coverage and test reports are ignored too.</li>
+  <li><strong>Planned next:</strong> short-lived feature branches merged into <code>dev</code> by pull request, and a tagged release merged to <code>main</code> for each evaluation.</li>
+</ul>
+
+<h2>5. Testing, Refactoring and Documentation</h2>
+<p><strong>Testing.</strong> One command, <code>make test</code>, runs six suites and prints a pass/fail table with coverage, returning a non-zero exit
+code on any failure. Tests cover failure paths, not only happy paths: invalid, empty and null input, boundary values (0, 100, 100.0001),
+wrong types, duplicates, 10,000-row datasets, no-match queries, network and database failures, unauthorized access and concurrency.
+Only the LLM is stubbed; everything else runs against real PostgreSQL + pgvector and a real HTTP API.</p>
+<table>
+  <tr><th style="width:27%">Suite</th><th style="width:15%">Tools</th><th class="num" style="width:7%">Tests</th><th>What it verifies</th></tr>
+  <tr><td>Frontend components</td><td>Vitest, RTL, MSW</td><td class="num">198</td><td>Loading/empty/error states, filters, Clear Filters, sorting, pagination, modals, nav highlighting.</td></tr>
+  <tr><td>Backend unit</td><td>JUnit 5, Mockito</td><td class="num">203</td><td>Filter parsing edge cases, services, JWT and auth filters.</td></tr>
+  <tr><td>Backend integration</td><td>Testcontainers</td><td class="num">117</td><td>Repository queries, every endpoint, security matrix, DB failure, concurrent writes.</td></tr>
+  <tr><td>Database (SQL)</td><td>psql assertions</td><td class="num">223</td><td>Schema, constraints, foreign keys, trigger, index usage, sort/paging on 10k rows.</td></tr>
+  <tr><td>API black-box</td><td>Vitest + fetch</td><td class="num">159</td><td>Status codes, response shapes, invalid filters, CORS, chat 502 without an LLM.</td></tr>
+  <tr><td>End-to-end</td><td>Playwright</td><td class="num">22</td><td>Model, Category, Confidence &gt;= 95 flow, sort, clear, submit modal at 1280x600, users, access.</td></tr>
+  <tr><th colspan="2">Total (all passing)</th><th class="num">922</th><th>Line coverage: 99.2% frontend, 96.9% backend (unit + integration).</th></tr>
+</table>
+<p>API and end-to-end tests run against an isolated Docker stack (own database on tmpfs, test-only accounts, separate ports), so
+development data is never touched. Application code changed only where a test proved a defect, and each fix is recorded.</p>
+<p><strong>Refactoring.</strong> I refactor in small, behaviour-preserving steps, with tests as the safety net: simplified result storage to
+<code>&lt;uuid&gt;.json</code>; removed the unused <code>failed_login_attempts</code>/<code>locked_until</code> columns together with their code; consolidated
+error handling into one exception handler; moved null ordering into the repository query. The layout separates concerns: Maven
+modules for domain, persistence, application, web and security, and feature folders in React.</p>
+<p><strong>Documentation.</strong> Docs change in the same commit as the code: <code>README.md</code> (features, setup, LAN sharing, a Testing section),
+<code>docs/architecture.md</code>, <code>docs/data-model.md</code>, <code>docs/api.md</code>, and the OpenAPI contract
+<code>packages/openapi/openapi.yaml</code>, which I treat as the source of truth for the API. Prompts that change behaviour ask for these
+updates explicitly (for example, "Update packages/openapi/openapi.yaml, docs/api.md, and the README role table").</p>
+
+<!-- ======================= APPENDIX ======================= -->
+<div class="appendix">
+<h2>Appendix A: Sample Prompts (excerpts from Prompt.md)</h2>
+
+<h3>A.1 Grounding and negative constraints (21 Sep, project structure)</h3>
+<div class="prompt">Analyze the existing project at: [repository root]
+First inspect the actual folders and files. Do not assume the architecture.
+I want to establish a clean, industry-standard, scalable template for this project. [...]
+Negative constraints. Do NOT: blindly restructure existing code; invent technologies; create unnecessary folders; over-engineer; introduce microservices without a real need; put business logic directly in controllers; put secrets/API keys in Git; create empty "enterprise-looking" folders.
+Prefer simple, practical, maintainable architecture over maximum complexity.</div>
+<p class="why"><em>Principles:</em> grounding in the real repository, explicit negative constraints, preference for simplicity.</p>
+
+<h3>A.2 Incremental decomposition (24 Sep, database first)</h3>
+<div class="prompt">I am building a web application with a role-based authentication and authorization system. I want to design and implement the system step by step, starting with the PostgreSQL database schema.
+Do not jump directly into the complete application implementation. For now, focus only on the database design and schema. [...]
+Important Constraints: Never store plaintext passwords. Do not rely only on frontend/UI restrictions for authorization.
+Clearly distinguish authentication (who the user is) from authorization (what the user is allowed to do).
+If any requirement is ambiguous, explain the options and recommend a suitable approach.</div>
+<p class="why"><em>Principles:</em> one layer at a time, security requirements stated up front, the agent asked to surface ambiguity.</p>
+
+<h3>A.3 Debugging: explain first, then confirm (24 Sep, API restart loop)</h3>
+<div class="prompt">In terminals/4.txt lines 98-105, why is the container restarting, and where are the log files I can read to find out why?
+First explain the problem - do not jump to the fix. Why does Postgres need to listen on all addresses here? State the issue clearly.
+So you are saying Postgres is running on the host and the API is running inside Docker - they are in different network namespaces and cannot talk to each other by default. Is that correct?
+What is the fix for this? How do I let the API container reach host Postgres?</div>
+<p class="why"><em>Principles:</em> exact evidence (line ranges), diagnosis before fix, restating understanding to confirm the hypothesis.</p>
+
+<h3>A.4 Structured C-O-O-S-T-A-R specification (3 Oct, abridged)</h3>
+<div class="prompt">C - Context: You are changing the existing AMRAP repo. Inspect the real code before editing. Relevant pieces: ResultsPage.tsx, client.ts (createResult), ResultController.java POST /api/results, ApiKeyAuthenticationFilter.java (header X-Ingest-Key) [...]
+O - Objective: Make website result submission superadmin-only, and keep external machine ingest working. [...]
+O - Output: The smallest code change that enforces the rule in both the React page and the Java ingest endpoint. Matching updates to the OpenAPI file and the two docs [...] A short summary of files changed and how to verify.
+S - Style: Precise and local. Follow the patterns already in ResultsPage (see canReindex) and ResultController (see the reindex role check).
+T - Tone: Direct and implementation-focused. No architecture essay.
+A - Audience: A coding agent that will edit this repository and must not invent a new ingest API.
+R - Response constraints: Do not: remove X-Ingest-Key authentication; block admin or member from GET /api/results, viewing JSON, or using chat; put secrets in git; refactor unrelated pages [...]
+Done when: Admin and member do not see Submit result, and their JWT gets 403 from POST /api/results. POST /api/results with X-Ingest-Key [...] still creates a result. OpenAPI, docs/api.md, and the README role table describe that split.</div>
+<p class="why"><em>Principles:</em> full template, reuse of existing patterns, documentation updates required, verifiable "Done when".</p>
+
+<h3>A.5 Minimal change with a "Do NOT" list (3 Oct, chat persistence, abridged)</h3>
+<div class="prompt">Modify only the chat tab's state/memory persistence behavior.
+Required behavior: Preserve the complete current conversation when switching from the Chat tab to another tab such as Results. [...]
+Negative requirements - Do NOT: change the existing Chat UI design; modify the existing RAG pipeline; modify API endpoints or backend logic unless absolutely required; refactor unrelated code; reload/recreate the Chat widget when switching tabs.
+Important constraint: Make the smallest possible change required to persist the existing chat state across tab switches.</div>
+<p class="why"><em>Principles:</em> tightly scoped objective, explicit exclusions, expected result stated as a flow.</p>
+
+<h3>A.6 Quality requirements for testing (8 Oct, abridged)</h3>
+<div class="prompt">Implement a complete automated test suite for the entire application covering Frontend, Backend, API, and Database.
+Use the existing project structure and technology stack. Do not change application functionality just to make tests pass.
+Do not test only happy paths. For every important feature include: valid, invalid, empty and null input; boundary values; incorrect data types; duplicate data; large datasets; no matching results; API, database and network failures; unauthorized/forbidden access; concurrent operations. [...]
+Do not create fake tests that only mock everything. Use real database/API integration tests where appropriate.
+make test runs the complete test suite and returns: clear test results; passed/failed count; coverage where supported; non-zero exit code when any required test fails.</div>
+<p class="why"><em>Principles:</em> measurable quality bar, anti-patterns named explicitly, a single verifiable entry point.</p>
+
+<h2>Appendix B: Commit History Excerpt (<code>git log --oneline</code>, branch dev)</h2>
+<div class="log">7baf796  Project Structure Scaffold
+8ec26ca  initial version of authentication
+812e320  Set up hot-reload development environment with Docker; added docker-compose.dev.yml, updated Makefile ...
+cc5fe68  Integrate Ollama for RAG processing: added support for result ingestion and chat functionality ...
+bf9d7f5  Implement chat state persistence across tab switches: modified ChatPage to retain conversation history ...
+9f4541a  Update result ingestion process: modify API endpoint to require `X-Ingest-Key` or superadmin JWT ...
+fb68e66  Enhance chat functionality: implement history tracking for follow-up questions ...
+c0d62f1  Refactor Prompt.md: streamline content by removing redundant date entries and clarifying instructions ...
+e095408  Enhance AI Model Results Analysis Platform: extend result structure to include new fields for category ...
+b6ce072  Refactor result ingestion process: update file storage structure to save raw JSON directly ...
+f5f4e6c  Add column sorting functionality to results table: implement sorting for new numeric metrics ...
+33a135c  Add clear filters functionality to Results page: implement a button to reset all applied filters ...
+90840db  Update Makefile and README for testing enhancements: add new test commands to Makefile ...</div>
+</div>
+
+</body>
+</html>
