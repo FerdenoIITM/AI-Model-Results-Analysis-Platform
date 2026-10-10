@@ -5,24 +5,26 @@
 <title>AMRAP - Principles and Practices Document</title>
 <style>
   @page { size: A4; margin: 10mm 12mm 10mm 12mm; }
-  * { box-sizing: border-box; }
-  body { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 9.2pt; line-height: 1.32; color: #1b1f24; margin: 0; }
-  h1 { font-size: 14pt; margin: 0 0 0.8mm; color: #0b3d6e; }
-  h2 { font-size: 10.6pt; margin: 2.6mm 0 1mm; padding-bottom: 0.4mm; border-bottom: 1.2px solid #0b3d6e; color: #0b3d6e; }
-  h3 { font-size: 9.2pt; margin: 1.6mm 0 0.5mm; color: #22303d; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 9.2pt; line-height: 1.32; color: #241f1b; margin: 0; }
+  h1 { font-size: 14pt; margin: 0 0 0.8mm; color: #0f4c4a; }
+  h2 { font-size: 10.6pt; margin: 2.6mm 0 1mm; padding-bottom: 0.4mm; border-bottom: 1.2px solid #c2562b; color: #0f4c4a; }
+  h3 { font-size: 9.2pt; margin: 1.6mm 0 0.5mm; color: #9a3f1c; }
   p { margin: 0 0 1.2mm; }
   ul, ol { margin: 0 0 1.2mm; padding-left: 4.5mm; }
   li { margin: 0 0 0.4mm; }
-  code { font-family: "Liberation Mono", Consolas, monospace; font-size: 8pt; background: #eef2f6; padding: 0 2px; border-radius: 2px; }
+  li::marker { color: #c2562b; }
+  code { font-family: "Liberation Mono", Consolas, monospace; font-size: 8pt; background: #f4ece1; color: #5a2a14; padding: 0 2px; border-radius: 2px; }
   table { width: 100%; border-collapse: collapse; margin: 0.8mm 0 1.4mm; font-size: 8.5pt; line-height: 1.27; }
-  th, td { border: 1px solid #c5ced8; padding: 0.7mm 1.3mm; vertical-align: top; text-align: left; }
-  th { background: #e6edf4; }
-  .meta { display: flex; justify-content: space-between; font-size: 8.5pt; color: #44505c; border-bottom: 2px solid #0b3d6e; padding-bottom: 1.2mm; margin-bottom: 1mm; }
+  th, td { border: 1px solid #dccdb9; padding: 0.7mm 1.3mm; vertical-align: top; text-align: left; }
+  th { background: #0f4c4a; color: #fbf7f1; border-color: #0f4c4a; }
+  tr:nth-child(even) td { background: #fbf7f1; }
+  .meta { display: flex; justify-content: space-between; font-size: 8.5pt; color: #5c5148; border-bottom: 2px solid #c2562b; padding-bottom: 1.2mm; margin-bottom: 1mm; }
   .meta div { line-height: 1.4; }
   .num { text-align: right; white-space: nowrap; }
-  .flow { font-family: "Liberation Mono", monospace; font-size: 8pt; background: #f4f7fa; border: 1px solid #d6dee6; padding: 0.9mm 1.8mm; margin: 0.6mm 0 1.2mm; }
-  .prompt { border-left: 3px solid #0b3d6e; background: #f6f8fa; padding: 1mm 2mm; margin: 0.6mm 0 0.6mm; font-family: "Liberation Mono", monospace; font-size: 7.6pt; line-height: 1.27; white-space: pre-wrap; }
-  .why { font-size: 8.2pt; margin: 0 0 1.4mm; color: #33404c; }
+  .flow { font-family: "Liberation Mono", monospace; font-size: 8pt; background: #f8f2e9; border: 1px solid #e3d4c0; padding: 0.9mm 1.8mm; margin: 0.6mm 0 1.2mm; }
+  .prompt { border-left: 3px solid #c2562b; background: #fbf6ef; padding: 1mm 2mm; margin: 0.6mm 0 0.6mm; font-family: "Liberation Mono", monospace; font-size: 7.6pt; line-height: 1.27; white-space: pre-wrap; }
+  .why { font-size: 8.2pt; margin: 0 0 1.4mm; color: #4a413a; }
   table, .prompt, .flow { break-inside: avoid; }
   h2, h3 { break-after: avoid; }
   .appendix { break-before: page; }
@@ -38,13 +40,13 @@
        <strong>Repository:</strong> github.com/FerdenoIITM/AI-Model-Results-Analysis-Platform</div>
 </div>
 
-<p><strong>Project.</strong> AMRAP stores AI model evaluation results (raw JSON on disk, metadata and six metrics in PostgreSQL), lets
+<p><strong>Project: </strong> AMRAP stores AI model evaluation results (raw JSON on disk, metadata and six metrics in PostgreSQL), lets
 users filter, sort and page through them, and answers natural-language questions with retrieval-augmented generation (RAG) over
 <strong>pgvector</strong> and a local <strong>Ollama</strong> LLM. Stack: Spring Boot 3 (Java 21, multi-module Maven), React 18 + Vite,
 PostgreSQL 16, Docker Compose, JWT role-based access (superadmin, admin, member). The project was built with an AI coding agent;
 the sections below map each practice to the course module it comes from.</p>
 
-<h2>1. Prompt Engineering (Module 2)</h2>
+<h2>1. Prompt Engineering</h2>
 <p>I treat a prompt as the entire input the model sees, so the job is to make it <em>dense</em>, not long: every clause should remove an
 ambiguity. The habits I use, in the lecture's terms, with evidence from <code>Prompt.md</code> (full samples in Appendix A):</p>
 <table>
@@ -59,15 +61,8 @@ ambiguity. The habits I use, in the lecture's terms, with evidence from <code>Pr
   <tr><td><strong>Prompt chaining</strong> (plan, generate, critique, patch)</td><td>Big features start in plan mode: the agent asks questions, I approve the plan, then it implements, then tests critique it.</td><td>"Give me a plan for implementing this using RAG." Filtering prompt: "Give me an implementation plan in this order: Phase 1 Database..."</td></tr>
   <tr><td><strong>Verification habit</strong> (anti-hallucination)</td><td>Tell the agent not to assume APIs; then every change must compile, run and pass tests before I accept it.</td><td>"Do not assume this exact response structure... Inspect the existing API architecture."</td></tr>
 </table>
-<p><strong>Prompts inside the product.</strong> The same rules shape the chat feature in <code>ChatService.java</code>. The system prompt gives a role
-("AMRAP's analytics assistant"), grounds the model ("answer strictly from the CONTEXT chunks... do not invent numbers") and asks it to cite
-model, version and iteration. Retrieved chunks are wrapped in delimiters labelled with <code>result_id</code>, model, version and date (RAG
-context injection). Follow-ups use a two-step <strong>chain</strong>: a rewrite prompt with a structured-output rule ("Return only that search
-sentence, with no quotes"), whose reply is parsed defensively, then the answer prompt. Temperature is <code>0.2</code>, the lecture's setting for
-routine logic, and each history turn is capped at 2,000 characters (context pruning). Known gap and next step: the user question is not yet
-inside tags with a sandwich reminder, which is the lecture's defence against prompt injection.</p>
 
-<h2>2. Debugging (Module 4)</h2>
+<h2>2. Debugging</h2>
 <p>The rule I follow is <strong>explain, then fix</strong>: the agent must state the cause before it patches anything. My loop:</p>
 <div class="flow">Reproduce -&gt; narrow the context (smallest set of files / log lines) -&gt; explain and rank likely causes -&gt;
 confirm with one experiment -&gt; smallest patch, reviewed as a diff -&gt; verify, then add a regression test</div>
@@ -83,23 +78,21 @@ confirm with one experiment -&gt; smallest patch, reviewed as a diff -&gt; verif
   <tr><td>Wrong status codes found by new tests</td><td>403 instead of 401 without a token; 500 for a malformed UUID or unknown route; nulls first in descending sort; 500 on concurrent duplicate email.</td><td>JSON 401 entry point, exception-to-status mapping, NULLS LAST + id tie-breaker, unique violation to 409. Each held by a test.</td></tr>
   <tr><td>Flaky E2E pagination (time-dependent)</td><td>Page 2 "overlapped" page 1: the page re-rendered before loading started, and iteration IDs are second-resolution timestamps.</td><td>Wait for the real <code>GET /api/results</code> response; key rows by model+version. 3 repeated runs, 42/42 stable.</td></tr>
 </table>
-<p>I check that a test really guards a fix by breaking the code on purpose (disabling the Clear Filters reset made its test fail).</p>
+<p>I check that a test really guards a fix by breaking the code on purpose.</p>
 
-<h2>3. Version Control with Git: Code and Prompts (Module 3)</h2>
+<h2>3. Version Control with Git: Code and Prompts</h2>
 <ul>
   <li><strong>Branches:</strong> all development happens on <code>dev</code>; <code>main</code> is kept for a stable, evaluated version.</li>
   <li><strong>AI-drafted, human-checked commits:</strong> I use the IDE's commit-message generator on the staged diff, then review it: the model sees
       <em>what</em> changed, so I correct the intent and add the <em>why</em> by hand. One commit maps to one prompt or feature, so the log reads as a
       changelog (e.g. <code>9f4541a</code> "require X-Ingest-Key or superadmin JWT for submissions", <code>fb68e66</code> "history tracking for follow-up questions").
       If a generated message comes out vague, I split the commit. Tests run before committing AI-written changes.</li>
-  <li><strong>Prompts are versioned like code:</strong> <code>Prompt.md</code> records every prompt given to the agent and is committed alongside the source, so
-      <code>git log -p Prompt.md</code> shows how prompts evolved next to the code they produced. The product's own prompts (<code>SYSTEM_PROMPT</code>,
-      <code>REWRITE_PROMPT</code>) live in Java source, so any change to them is a reviewed diff.</li>
+  <li><strong>Prompts are versioned like code:</strong> <code>Prompt.md</code> records every prompt given to the agent and is committed alongside the source.</li>
   <li><strong>Secrets stay out of git:</strong> <code>.env</code> is ignored; <code>.env.example</code> documents every variable with placeholders; build output,
       <code>node_modules</code>, coverage and test reports are ignored too.</li>
 </ul>
 
-<h2>4. Testing, Refactoring and Documentation (Module 4)</h2>
+<h2>4. Testing, Refactoring and Documentations</h2>
 <p><strong>Testing.</strong> <code>make check</code> runs six suites and prints a pass/fail table with coverage, exiting non-zero on any failure
 (<code>make test</code> starts the isolated test stack). Following the lecture's <strong>edge-case enumeration</strong>, tests are grouped by category:
 boundary values (0, 100, 100.0001), null/empty/wrong-type input, resource limits (10,000-row datasets), and concurrency (simultaneous creates).
