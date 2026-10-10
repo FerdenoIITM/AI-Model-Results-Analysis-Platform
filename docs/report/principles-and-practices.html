@@ -4,28 +4,28 @@
 <meta charset="utf-8">
 <title>AMRAP - Principles and Practices Document</title>
 <style>
-  @page { size: A4; margin: 13mm 14mm 13mm 14mm; }
+  @page { size: A4; margin: 10mm 12mm 10mm 12mm; }
   * { box-sizing: border-box; }
-  body { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.4; color: #1b1f24; margin: 0; }
-  h1 { font-size: 15.5pt; margin: 0 0 1mm; color: #0b3d6e; }
-  h2 { font-size: 11.3pt; margin: 3.4mm 0 1.2mm; padding-bottom: 0.6mm; border-bottom: 1.2px solid #0b3d6e; color: #0b3d6e; }
-  h3 { font-size: 10pt; margin: 2.2mm 0 0.8mm; color: #22303d; }
-  p { margin: 0 0 1.5mm; }
-  ul, ol { margin: 0 0 1.5mm; padding-left: 5mm; }
-  li { margin: 0 0 0.6mm; }
-  code { font-family: "Liberation Mono", Consolas, monospace; font-size: 8.6pt; background: #eef2f6; padding: 0 2px; border-radius: 2px; }
-  table { width: 100%; border-collapse: collapse; margin: 1mm 0 2mm; font-size: 9.2pt; }
-  th, td { border: 1px solid #c5ced8; padding: 1mm 1.6mm; vertical-align: top; text-align: left; }
+  body { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; font-size: 9.2pt; line-height: 1.32; color: #1b1f24; margin: 0; }
+  h1 { font-size: 14pt; margin: 0 0 0.8mm; color: #0b3d6e; }
+  h2 { font-size: 10.6pt; margin: 2.6mm 0 1mm; padding-bottom: 0.4mm; border-bottom: 1.2px solid #0b3d6e; color: #0b3d6e; }
+  h3 { font-size: 9.2pt; margin: 1.6mm 0 0.5mm; color: #22303d; }
+  p { margin: 0 0 1.2mm; }
+  ul, ol { margin: 0 0 1.2mm; padding-left: 4.5mm; }
+  li { margin: 0 0 0.4mm; }
+  code { font-family: "Liberation Mono", Consolas, monospace; font-size: 8pt; background: #eef2f6; padding: 0 2px; border-radius: 2px; }
+  table { width: 100%; border-collapse: collapse; margin: 0.8mm 0 1.4mm; font-size: 8.5pt; line-height: 1.27; }
+  th, td { border: 1px solid #c5ced8; padding: 0.7mm 1.3mm; vertical-align: top; text-align: left; }
   th { background: #e6edf4; }
-  .meta { display: flex; justify-content: space-between; font-size: 9pt; color: #44505c; border-bottom: 2px solid #0b3d6e; padding-bottom: 1.6mm; margin-bottom: 1mm; }
-  .meta div { line-height: 1.45; }
-  .muted { color: #55606b; }
+  .meta { display: flex; justify-content: space-between; font-size: 8.5pt; color: #44505c; border-bottom: 2px solid #0b3d6e; padding-bottom: 1.2mm; margin-bottom: 1mm; }
+  .meta div { line-height: 1.4; }
   .num { text-align: right; white-space: nowrap; }
-  .flow { font-family: "Liberation Mono", monospace; font-size: 8.6pt; background: #f4f7fa; border: 1px solid #d6dee6; padding: 1.2mm 2mm; margin: 1mm 0 1.8mm; }
+  .flow { font-family: "Liberation Mono", monospace; font-size: 8pt; background: #f4f7fa; border: 1px solid #d6dee6; padding: 0.9mm 1.8mm; margin: 0.6mm 0 1.2mm; }
+  .prompt { border-left: 3px solid #0b3d6e; background: #f6f8fa; padding: 1mm 2mm; margin: 0.6mm 0 0.6mm; font-family: "Liberation Mono", monospace; font-size: 7.6pt; line-height: 1.27; white-space: pre-wrap; }
+  .why { font-size: 8.2pt; margin: 0 0 1.4mm; color: #33404c; }
+  table, .prompt, .flow { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
   .appendix { break-before: page; }
-  .prompt { border-left: 3px solid #0b3d6e; background: #f6f8fa; padding: 1.4mm 2.4mm; margin: 1mm 0 1.2mm; font-family: "Liberation Mono", monospace; font-size: 8.1pt; line-height: 1.32; white-space: pre-wrap; }
-  .why { font-size: 8.9pt; margin: 0 0 2.4mm; }
-  .log { font-family: "Liberation Mono", monospace; font-size: 8pt; white-space: pre-wrap; background: #f6f8fa; border: 1px solid #d6dee6; padding: 1.6mm 2.4mm; }
 </style>
 </head>
 <body>
@@ -38,152 +38,127 @@
        <strong>Repository:</strong> github.com/FerdenoIITM/AI-Model-Results-Analysis-Platform</div>
 </div>
 
-<h2>1. Project at a Glance</h2>
-<p>AMRAP stores AI model evaluation results, lets users filter, sort and page through them, and answers natural-language
-questions about them. External clients submit results (raw JSON plus metadata such as category and six metrics) to an
-ingest API. The JSON is written to disk, the metadata to PostgreSQL, and a background worker embeds the content into
-<strong>pgvector</strong> so a local <strong>Ollama</strong> LLM can answer questions with retrieval-augmented generation (RAG).
-The stack is Spring Boot 3 (Java 21, multi-module Maven), React 18 + Vite, PostgreSQL 16 and Docker Compose, with
-role-based access (superadmin, admin, member) secured by JWT. The practices below are how I kept that collaboration correct, traceable and maintainable.</p>
+<p><strong>Project.</strong> AMRAP stores AI model evaluation results (raw JSON on disk, metadata and six metrics in PostgreSQL), lets
+users filter, sort and page through them, and answers natural-language questions with retrieval-augmented generation (RAG) over
+<strong>pgvector</strong> and a local <strong>Ollama</strong> LLM. Stack: Spring Boot 3 (Java 21, multi-module Maven), React 18 + Vite,
+PostgreSQL 16, Docker Compose, JWT role-based access (superadmin, admin, member). The project was built with an AI coding agent;
+the sections below map each practice to the course module it comes from.</p>
 
-<h2>2. Prompt Engineering</h2>
-<p>My prompts evolved from open questions ("how should I organize a website?") into <strong>specifications</strong> that a
-coding agent can execute and that I can check. The principles I apply, each with a real example from
-<code>Prompt.md</code> (samples in Appendix A):</p>
+<h2>1. Prompt Engineering (Module 2)</h2>
+<p>I treat a prompt as the entire input the model sees, so the job is to make it <em>dense</em>, not long: every clause should remove an
+ambiguity. The habits I use, in the lecture's terms, with evidence from <code>Prompt.md</code> (full samples in Appendix A):</p>
 <table>
-  <tr><th style="width:23%">Principle</th><th style="width:38%">How I apply it</th><th>Example from my prompts</th></tr>
-  <tr><td><strong>Ground in the real code</strong></td><td>Ask the agent to inspect files before proposing anything; name exact paths and terminal line ranges.</td><td>"First inspect the actual folders and files. Do not assume the architecture." / "In terminals/4.txt lines 98-105, why is the container restarting?"</td></tr>
-  <tr><td><strong>Decompose incrementally</strong></td><td>One concern per prompt, in dependency order: schema, then API, then UI, then tests.</td><td>"Do not jump directly into the complete application. For now, focus only on the database design and schema."</td></tr>
-  <tr><td><strong>Structured template (C-O-O-S-T-A-R)</strong></td><td>Context, Objective, Output, Style, Tone, Audience, Response constraints. Each section removes a class of ambiguity.</td><td>Superadmin-only result submission and chat follow-up history prompts (Appendix A.4).</td></tr>
-  <tr><td><strong>Negative constraints and scope</strong></td><td>List what must <em>not</em> change, and ask for the smallest possible change, to stop unrelated refactors.</td><td>"Do not refactor unrelated code." "Make the smallest possible change required to persist the existing chat state."</td></tr>
-  <tr><td><strong>Explicit acceptance criteria</strong></td><td>End with a "Done when" list I can verify by hand or with tests.</td><td>"Done when: ... Admin and member do not see Submit result, and their JWT gets 403 from POST /api/results."</td></tr>
-  <tr><td><strong>Explain before fixing</strong></td><td>For bugs and unfamiliar concepts, first ask for the cause, then restate my understanding to confirm it.</td><td>"First explain the problem - do not jump to the fix." / "So you are saying ... Is that correct?"</td></tr>
-  <tr><td><strong>Plan, then implement</strong></td><td>Large features start in plan mode; the agent asks clarifying questions and I approve a written plan before code changes.</td><td>"Give me a plan for implementing this using RAG." The RAG feature and the test suite were both planned and approved before any code.</td></tr>
+  <tr><th style="width:21%">Lecture principle</th><th style="width:37%">How I apply it</th><th>Evidence from my prompts</th></tr>
+  <tr><td><strong>Five-part anatomy</strong> (role, task, context, constraints, examples)</td><td>Checked before sending; if three parts are missing, the answer will be a guess. Role is usually "a coding agent editing this repo".</td><td>"Audience: A coding agent that will edit this repository and must not invent a new RAG pipeline."</td></tr>
+  <tr><td><strong>Specificity</strong></td><td>Replace "make it work" with an exact target, the contract to keep, and a verifiable <em>Done when</em> line.</td><td>"Done when a follow-up pronoun uses the previous turns, and today / yesterday limit search to that local day."</td></tr>
+  <tr><td><strong>Curated context</strong></td><td>Name the exact files, methods and terminal line ranges instead of pasting the repo; tell the agent what already exists.</td><td>"In terminals/4.txt lines 98-105, why is the container restarting?" / "ask() embeds request.question() only..."</td></tr>
+  <tr><td><strong>CO-STAR framework</strong></td><td>Used once a prompt is a screenful. I added an Output slot and use R for Response constraints plus Done-when.</td><td>Superadmin-only submission and chat follow-up prompts (Appendix A.1).</td></tr>
+  <tr><td><strong>Negative prompting</strong></td><td>Explicit "Do NOT" lists, placed high, to stop unrelated refactors and scope creep.</td><td>"Do NOT: change the existing Chat UI design; modify the existing RAG pipeline; refactor unrelated code."</td></tr>
+  <tr><td><strong>Few-shot examples</strong></td><td>One concrete input/output pair to pin an unusual shape (query rewrite, JSON response layout).</td><td>"what are the results today" + "results of them" becomes "results ingested today".</td></tr>
+  <tr><td><strong>Iterate with short follow-ups</strong></td><td>When an answer is mostly right, fix one thing in a two-line follow-up instead of rewriting the whole prompt.</td><td>"Send the whole session, not the last 6 turns." then "Is there any trade-off?" (A.3)</td></tr>
+  <tr><td><strong>Prompt chaining</strong> (plan, generate, critique, patch)</td><td>Big features start in plan mode: the agent asks questions, I approve the plan, then it implements, then tests critique it.</td><td>"Give me a plan for implementing this using RAG." Filtering prompt: "Give me an implementation plan in this order: Phase 1 Database..."</td></tr>
+  <tr><td><strong>Verification habit</strong> (anti-hallucination)</td><td>Tell the agent not to assume APIs; then every change must compile, run and pass tests before I accept it.</td><td>"Do not assume this exact response structure... Inspect the existing API architecture."</td></tr>
 </table>
+<p><strong>Prompts inside the product.</strong> The same rules shape the chat feature in <code>ChatService.java</code>. The system prompt gives a role
+("AMRAP's analytics assistant"), grounds the model ("answer strictly from the CONTEXT chunks... do not invent numbers") and asks it to cite
+model, version and iteration. Retrieved chunks are wrapped in delimiters labelled with <code>result_id</code>, model, version and date (RAG
+context injection). Follow-ups use a two-step <strong>chain</strong>: a rewrite prompt with a structured-output rule ("Return only that search
+sentence, with no quotes"), whose reply is parsed defensively, then the answer prompt. Temperature is <code>0.2</code>, the lecture's setting for
+routine logic, and each history turn is capped at 2,000 characters (context pruning). Known gap and next step: the user question is not yet
+inside tags with a sandwich reminder, which is the lecture's defence against prompt injection.</p>
 
-<h2>3. Debugging</h2>
-<p>I follow the same loop for every issue, whether it comes from a terminal, the browser or a failing test:</p>
-<div class="flow">1 Reproduce  -&gt;  2 Collect evidence (exact log lines, status codes)  -&gt;  3 Explain the cause before any fix  -&gt;
-4 Confirm the hypothesis  -&gt;  5 Apply the smallest fix  -&gt;  6 Verify, then add a regression test</div>
-<table>
-  <tr><th style="width:24%">Issue</th><th style="width:40%">Evidence and diagnosis</th><th>Fix and verification</th></tr>
-  <tr><td>API container in a restart loop</td><td>Read the container logs by line range: the API could not reach PostgreSQL. Asked for an explanation first: Postgres ran on the host and the API in Docker, so they sat in different network namespaces and Postgres listened only on localhost.</td><td>Point the API at <code>host.docker.internal</code> (mapped to <code>host-gateway</code> in Compose) and let host Postgres accept connections from Docker; confirmed by re-reading the logs until the container stayed healthy.</td></tr>
-  <tr><td>Wrong status codes and sort order found by the new tests</td><td>Integration tests showed 403 instead of 401 without a token, 500 for a malformed UUID or unknown route, nulls first in descending sort, and 500 for two simultaneous creates with the same email.</td><td>Minimal fixes: a JSON 401 entry point, exception-to-status mapping, NULLS LAST with an id tie-breaker, unique-violation to 409. Each fix is now held by a test.</td></tr>
-  <tr><td>Flaky end-to-end pagination test</td><td>Page 2 "overlapped" page 1. Traced it to two causes: the page renders once with the new page number before loading starts, and iteration IDs are second-resolution timestamps, so they are not unique.</td><td>Wait for the actual <code>GET /api/results</code> response; identify rows by model+version. Repeated the read-only specs 3 times (42 runs, all stable).</td></tr>
-</table>
-<p>Two habits make this reliable: I quote exact evidence (file and line range) instead of describing symptoms, and I
-check a fix catches the bug by breaking the code on purpose (for example, disabling the Clear Filters reset made its test fail).</p>
-
-<h2>4. Version Control with Git (Code and Prompts)</h2>
+<h2>2. Debugging (Module 4)</h2>
+<p>The rule I follow is <strong>explain, then fix</strong>: the agent must state the cause before it patches anything. My loop:</p>
+<div class="flow">Reproduce -&gt; narrow the context (smallest set of files / log lines) -&gt; explain and rank likely causes -&gt;
+confirm with one experiment -&gt; smallest patch, reviewed as a diff -&gt; verify, then add a regression test</div>
 <ul>
-  <li><strong>Branches and remote:</strong> all development happens on <code>dev</code> (28 commits, pushed to GitHub); <code>main</code> is kept for a
-      stable, evaluated version and currently holds only the initial commit.</li>
-  <li><strong>Feature-sized commits with descriptive messages</strong> that say what changed and why, for example
-      <em>"Add column sorting functionality to results table ... Ensure sorting uses numeric values and does not affect existing column sorting"</em>. Each commit maps to one prompt or feature, so the
-      history doubles as a changelog (Appendix B).</li>
-  <li><strong>Prompts are versioned with the code.</strong> <code>Prompt.md</code> (about 2,000 lines, 9 dated sections) records every prompt I gave the
-      assistant. It changed in 14 commits, usually <em>the same commit as the code it produced</em> (for example, the filtering
-      feature commit added both the code and its 680-line prompt). <code>git log -p Prompt.md</code> shows how my prompting
-      evolved, and <code>git blame</code> links any feature to the prompt that requested it. I refactored the file once (5 Oct) to remove
-      duplicated entries.</li>
-  <li><strong>Secrets stay out of git:</strong> <code>.env</code> is ignored and <code>.env.example</code> documents every variable with safe placeholders;
-      build output, <code>node_modules</code>, coverage and test reports are ignored too.</li>
-  <li><strong>Planned next:</strong> short-lived feature branches merged into <code>dev</code> by pull request, and a tagged release merged to <code>main</code> for each evaluation.</li>
+  <li><strong>Context dial:</strong> I start narrow (the exact terminal lines or failing test) and widen only if my guess about where the bug is was wrong.</li>
+  <li><strong>Rubber-ducking with the model:</strong> I restate my understanding and ask the model to confirm it ("So you are saying Postgres is on the host and the API is in Docker... Is that correct?").</li>
+  <li><strong>Minimal repro:</strong> a failing test is the repro; once it fails for the right reason, the fix is usually small.</li>
+  <li><strong>Knowing when AI is the wrong tool:</strong> the model cannot see my machine or time, so environment- and timing-dependent bugs were confirmed by my own evidence (logs, repeated runs).</li>
+</ul>
+<table>
+  <tr><th style="width:21%">Issue</th><th style="width:44%">Evidence and diagnosis</th><th>Fix and verification</th></tr>
+  <tr><td>API container restart loop (environment-dependent)</td><td>Logs showed the API could not reach PostgreSQL. Explanation first: Postgres ran on the host, the API in Docker, in different network namespaces, with Postgres listening only on localhost.</td><td>API points at <code>host.docker.internal</code> (<code>host-gateway</code>); host Postgres accepts Docker connections. Re-read logs until healthy.</td></tr>
+  <tr><td>Wrong status codes found by new tests</td><td>403 instead of 401 without a token; 500 for a malformed UUID or unknown route; nulls first in descending sort; 500 on concurrent duplicate email.</td><td>JSON 401 entry point, exception-to-status mapping, NULLS LAST + id tie-breaker, unique violation to 409. Each held by a test.</td></tr>
+  <tr><td>Flaky E2E pagination (time-dependent)</td><td>Page 2 "overlapped" page 1: the page re-rendered before loading started, and iteration IDs are second-resolution timestamps.</td><td>Wait for the real <code>GET /api/results</code> response; key rows by model+version. 3 repeated runs, 42/42 stable.</td></tr>
+</table>
+<p>I check that a test really guards a fix by breaking the code on purpose (disabling the Clear Filters reset made its test fail).</p>
+
+<h2>3. Version Control with Git: Code and Prompts (Module 3)</h2>
+<ul>
+  <li><strong>Branches:</strong> all development happens on <code>dev</code>; <code>main</code> is kept for a stable, evaluated version.</li>
+  <li><strong>AI-drafted, human-checked commits:</strong> I use the IDE's commit-message generator on the staged diff, then review it: the model sees
+      <em>what</em> changed, so I correct the intent and add the <em>why</em> by hand. One commit maps to one prompt or feature, so the log reads as a
+      changelog (e.g. <code>9f4541a</code> "require X-Ingest-Key or superadmin JWT for submissions", <code>fb68e66</code> "history tracking for follow-up questions").
+      If a generated message comes out vague, I split the commit. Tests run before committing AI-written changes.</li>
+  <li><strong>Prompts are versioned like code:</strong> <code>Prompt.md</code> records every prompt given to the agent and is committed alongside the source, so
+      <code>git log -p Prompt.md</code> shows how prompts evolved next to the code they produced. The product's own prompts (<code>SYSTEM_PROMPT</code>,
+      <code>REWRITE_PROMPT</code>) live in Java source, so any change to them is a reviewed diff.</li>
+  <li><strong>Secrets stay out of git:</strong> <code>.env</code> is ignored; <code>.env.example</code> documents every variable with placeholders; build output,
+      <code>node_modules</code>, coverage and test reports are ignored too.</li>
 </ul>
 
-<h2>5. Testing, Refactoring and Documentation</h2>
-<p><strong>Testing.</strong> One command, <code>make test</code>, runs six suites and prints a pass/fail table with coverage, returning a non-zero exit
-code on any failure. Tests cover failure paths, not only happy paths: invalid, empty and null input, boundary values (0, 100, 100.0001),
-wrong types, duplicates, 10,000-row datasets, no-match queries, network and database failures, unauthorized access and concurrency.
-Only the LLM is stubbed; everything else runs against real PostgreSQL + pgvector and a real HTTP API.</p>
+<h2>4. Testing, Refactoring and Documentation (Module 4)</h2>
+<p><strong>Testing.</strong> <code>make check</code> runs six suites and prints a pass/fail table with coverage, exiting non-zero on any failure
+(<code>make test</code> starts the isolated test stack). Following the lecture's <strong>edge-case enumeration</strong>, tests are grouped by category:
+boundary values (0, 100, 100.0001), null/empty/wrong-type input, resource limits (10,000-row datasets), and concurrency (simultaneous creates).
+<strong>Adversarial inputs</strong> (malformed UUIDs, invalid filter operators, missing or forbidden tokens) must produce clean 4xx errors. The OpenAPI file
+acts as the <strong>contract</strong>: API black-box tests assert status codes and response shapes against it. Only the LLM is stubbed.</p>
 <table>
-  <tr><th style="width:27%">Suite</th><th style="width:15%">Tools</th><th class="num" style="width:7%">Tests</th><th>What it verifies</th></tr>
-  <tr><td>Frontend components</td><td>Vitest, RTL, MSW</td><td class="num">198</td><td>Loading/empty/error states, filters, Clear Filters, sorting, pagination, modals, nav highlighting.</td></tr>
+  <tr><th style="width:21%">Suite</th><th style="width:17%">Tools</th><th class="num" style="width:7%">Tests</th><th>What it verifies</th></tr>
+  <tr><td>Frontend components</td><td>Vitest, RTL, MSW</td><td class="num">198</td><td>Loading/empty/error states, filters, Clear Filters, sorting, pagination, modals.</td></tr>
   <tr><td>Backend unit</td><td>JUnit 5, Mockito</td><td class="num">203</td><td>Filter parsing edge cases, services, JWT and auth filters.</td></tr>
   <tr><td>Backend integration</td><td>Testcontainers</td><td class="num">117</td><td>Repository queries, every endpoint, security matrix, DB failure, concurrent writes.</td></tr>
-  <tr><td>Database (SQL)</td><td>psql assertions</td><td class="num">223</td><td>Schema, constraints, foreign keys, trigger, index usage, sort/paging on 10k rows.</td></tr>
-  <tr><td>API black-box</td><td>Vitest + fetch</td><td class="num">159</td><td>Status codes, response shapes, invalid filters, CORS, chat 502 without an LLM.</td></tr>
-  <tr><td>End-to-end</td><td>Playwright</td><td class="num">22</td><td>Model, Category, Confidence &gt;= 95 flow, sort, clear, submit modal at 1280x600, users, access.</td></tr>
-  <tr><th colspan="2">Total (all passing)</th><th class="num">922</th><th>Line coverage: 99.2% frontend, 96.9% backend (unit + integration).</th></tr>
+  <tr><td>Database / API / E2E</td><td>psql, fetch, Playwright</td><td class="num">404</td><td>Constraints, trigger, 10k-row paging; status codes, CORS, chat 502; full user flows.</td></tr>
+  <tr><th colspan="2">Total (all passing)</th><th class="num">922</th><th>Line coverage: 99.2% frontend, 96.9% backend.</th></tr>
 </table>
-<p>API and end-to-end tests run against an isolated Docker stack (own database on tmpfs, test-only accounts, separate ports), so
-development data is never touched. Application code changed only where a test proved a defect, and each fix is recorded.</p>
-<p><strong>Refactoring.</strong> I refactor in small, behaviour-preserving steps, with tests as the safety net: simplified result storage to
-<code>&lt;uuid&gt;.json</code>; removed the unused <code>failed_login_attempts</code>/<code>locked_until</code> columns together with their code; consolidated
-error handling into one exception handler; moved null ordering into the repository query. The layout separates concerns: Maven
-modules for domain, persistence, application, web and security, and feature folders in React.</p>
-<p><strong>Documentation.</strong> Docs change in the same commit as the code: <code>README.md</code> (features, setup, LAN sharing, a Testing section),
-<code>docs/architecture.md</code>, <code>docs/data-model.md</code>, <code>docs/api.md</code>, and the OpenAPI contract
-<code>packages/openapi/openapi.yaml</code>, which I treat as the source of truth for the API. Prompts that change behaviour ask for these
-updates explicitly (for example, "Update packages/openapi/openapi.yaml, docs/api.md, and the README role table").</p>
+<p><strong>Refactoring.</strong> Refactoring changes shape, not behaviour, so the tests decide: I rerun the suite after every AI refactor to catch
+<em>silent behaviour change</em>. Refactor prompts follow the lecture shape: the code, the one move wanted, constraints ("keep the public signature",
+"do not refactor unrelated code") and the output format. Examples: error handling extracted into one exception handler; null ordering moved into the
+repository query; unused <code>failed_login_attempts</code>/<code>locked_until</code> columns removed with their code; result storage simplified to
+<code>&lt;uuid&gt;.json</code>. Maven modules (domain, persistence, application, web, security) and React feature folders keep concerns separate.</p>
+<p><strong>Documentation.</strong> Docs change in the same commit as the code: <code>README.md</code>, <code>docs/architecture.md</code>,
+<code>docs/data-model.md</code>, <code>docs/api.md</code> and <code>packages/openapi/openapi.yaml</code>, the source of truth for the API. Prompts that change
+behaviour ask for these updates explicitly ("Update the ChatRequest schema in openapi.yaml and the POST /api/chat note in docs/api.md").</p>
 
 <!-- ======================= APPENDIX ======================= -->
 <div class="appendix">
-<h2>Appendix A: Sample Prompts (excerpts from Prompt.md)</h2>
+<h2>Appendix A: Sample Prompts (abridged excerpts from Prompt.md and ChatService.java)</h2>
 
-<h3>A.1 Grounding and negative constraints (21 Sep, project structure)</h3>
-<div class="prompt">Analyze the existing project at: [repository root]
-First inspect the actual folders and files. Do not assume the architecture.
-I want to establish a clean, industry-standard, scalable template for this project. [...]
-Negative constraints. Do NOT: blindly restructure existing code; invent technologies; create unnecessary folders; over-engineer; introduce microservices without a real need; put business logic directly in controllers; put secrets/API keys in Git; create empty "enterprise-looking" folders.
-Prefer simple, practical, maintainable architecture over maximum complexity.</div>
-<p class="why"><em>Principles:</em> grounding in the real repository, explicit negative constraints, preference for simplicity.</p>
+<h3>A.1 CO-STAR specification with a few-shot example (chat follow-ups)</h3>
+<div class="prompt">C - Context: You are changing the existing AMRAP repo. Inspect the real code before editing. ChatService.ask() embeds request.question() only, then prompts the chat model with one SystemMessage and one UserMessage. Prior turns are not sent. [...]
+O - Objective: Make follow-up questions and the words "today" / "yesterday" work, with the smallest change. [...] Example: history question "what are the results today" plus new question "just show me the results of them" becomes a search like "results ingested today".
+O - Output: ChatPage sends history from its existing messages state. A short summary of files changed and how to verify.
+S - Style: Precise and local. Extend ChatRequest, ChatRequestBody, and ChatService.ask. Do not add a new chat endpoint.
+T - Tone: Direct and implementation-focused.   A - Audience: A coding agent that must not invent a new RAG pipeline.
+R - Response constraints: Do not: change the embedding model, chat model or vector size; store chat history in Postgres; put secrets in git.
+Done when a follow-up pronoun uses the previous turns, and "today" / "yesterday" limit search to that local day.</div>
+<p class="why"><em>Principles:</em> CO-STAR, curated context, few-shot example, negative prompting, verifiable Done-when.</p>
 
-<h3>A.2 Incremental decomposition (24 Sep, database first)</h3>
-<div class="prompt">I am building a web application with a role-based authentication and authorization system. I want to design and implement the system step by step, starting with the PostgreSQL database schema.
-Do not jump directly into the complete application implementation. For now, focus only on the database design and schema. [...]
-Important Constraints: Never store plaintext passwords. Do not rely only on frontend/UI restrictions for authorization.
-Clearly distinguish authentication (who the user is) from authorization (what the user is allowed to do).
-If any requirement is ambiguous, explain the options and recommend a suitable approach.</div>
-<p class="why"><em>Principles:</em> one layer at a time, security requirements stated up front, the agent asked to surface ambiguity.</p>
-
-<h3>A.3 Debugging: explain first, then confirm (24 Sep, API restart loop)</h3>
+<h3>A.2 Debugging: explain first, then rubber-duck the diagnosis (API restart loop)</h3>
 <div class="prompt">In terminals/4.txt lines 98-105, why is the container restarting, and where are the log files I can read to find out why?
-First explain the problem - do not jump to the fix. Why does Postgres need to listen on all addresses here? State the issue clearly.
+First explain the problem - do not jump to the fix. State the issue clearly.
 So you are saying Postgres is running on the host and the API is running inside Docker - they are in different network namespaces and cannot talk to each other by default. Is that correct?
 What is the fix for this? How do I let the API container reach host Postgres?</div>
-<p class="why"><em>Principles:</em> exact evidence (line ranges), diagnosis before fix, restating understanding to confirm the hypothesis.</p>
+<p class="why"><em>Principles:</em> narrow context (exact line range), explain then fix, rubber-ducking to confirm the hypothesis before patching.</p>
 
-<h3>A.4 Structured C-O-O-S-T-A-R specification (3 Oct, abridged)</h3>
-<div class="prompt">C - Context: You are changing the existing AMRAP repo. Inspect the real code before editing. Relevant pieces: ResultsPage.tsx, client.ts (createResult), ResultController.java POST /api/results, ApiKeyAuthenticationFilter.java (header X-Ingest-Key) [...]
-O - Objective: Make website result submission superadmin-only, and keep external machine ingest working. [...]
-O - Output: The smallest code change that enforces the rule in both the React page and the Java ingest endpoint. Matching updates to the OpenAPI file and the two docs [...] A short summary of files changed and how to verify.
-S - Style: Precise and local. Follow the patterns already in ResultsPage (see canReindex) and ResultController (see the reindex role check).
-T - Tone: Direct and implementation-focused. No architecture essay.
-A - Audience: A coding agent that will edit this repository and must not invent a new ingest API.
-R - Response constraints: Do not: remove X-Ingest-Key authentication; block admin or member from GET /api/results, viewing JSON, or using chat; put secrets in git; refactor unrelated pages [...]
-Done when: Admin and member do not see Submit result, and their JWT gets 403 from POST /api/results. POST /api/results with X-Ingest-Key [...] still creates a result. OpenAPI, docs/api.md, and the README role table describe that split.</div>
-<p class="why"><em>Principles:</em> full template, reuse of existing patterns, documentation updates required, verifiable "Done when".</p>
+<h3>A.3 Short iterative follow-ups instead of a rewrite</h3>
+<div class="prompt">How many previous messages are being sent to the model as context - the whole conversation, or only the last 6 turns?
+I want the whole conversation of the current session sent as context, not just the last 6 turns.
+Is there any trade-off to sending the entire session as context instead of only the last 6 turns?</div>
+<p class="why"><em>Principles:</em> iterate one change at a time; ask for trade-offs (context-window cost) before accepting.</p>
 
-<h3>A.5 Minimal change with a "Do NOT" list (3 Oct, chat persistence, abridged)</h3>
-<div class="prompt">Modify only the chat tab's state/memory persistence behavior.
-Required behavior: Preserve the complete current conversation when switching from the Chat tab to another tab such as Results. [...]
-Negative requirements - Do NOT: change the existing Chat UI design; modify the existing RAG pipeline; modify API endpoints or backend logic unless absolutely required; refactor unrelated code; reload/recreate the Chat widget when switching tabs.
-Important constraint: Make the smallest possible change required to persist the existing chat state across tab switches.</div>
-<p class="why"><em>Principles:</em> tightly scoped objective, explicit exclusions, expected result stated as a flow.</p>
+<h3>A.4 Edge-case enumeration for the test suite</h3>
+<div class="prompt">Implement a complete automated test suite covering Frontend, Backend, API, and Database. Do not change application functionality just to make tests pass.
+Do not test only happy paths. For every important feature include: valid, invalid, empty and null input; boundary values; incorrect data types; duplicate data; large datasets; no matching results; API, database and network failures; unauthorized/forbidden access; concurrent operations.
+Do not create fake tests that only mock everything. make test runs the complete test suite and returns: passed/failed count; coverage; non-zero exit code when any required test fails.</div>
+<p class="why"><em>Principles:</em> edge cases by category (Module 4), negative prompting against fake tests, one verifiable entry point.</p>
 
-<h3>A.6 Quality requirements for testing (8 Oct, abridged)</h3>
-<div class="prompt">Implement a complete automated test suite for the entire application covering Frontend, Backend, API, and Database.
-Use the existing project structure and technology stack. Do not change application functionality just to make tests pass.
-Do not test only happy paths. For every important feature include: valid, invalid, empty and null input; boundary values; incorrect data types; duplicate data; large datasets; no matching results; API, database and network failures; unauthorized/forbidden access; concurrent operations. [...]
-Do not create fake tests that only mock everything. Use real database/API integration tests where appropriate.
-make test runs the complete test suite and returns: clear test results; passed/failed count; coverage where supported; non-zero exit code when any required test fails.</div>
-<p class="why"><em>Principles:</em> measurable quality bar, anti-patterns named explicitly, a single verifiable entry point.</p>
-
-<h2>Appendix B: Commit History Excerpt (<code>git log --oneline</code>, branch dev)</h2>
-<div class="log">7baf796  Project Structure Scaffold
-8ec26ca  initial version of authentication
-812e320  Set up hot-reload development environment with Docker; added docker-compose.dev.yml, updated Makefile ...
-cc5fe68  Integrate Ollama for RAG processing: added support for result ingestion and chat functionality ...
-bf9d7f5  Implement chat state persistence across tab switches: modified ChatPage to retain conversation history ...
-9f4541a  Update result ingestion process: modify API endpoint to require `X-Ingest-Key` or superadmin JWT ...
-fb68e66  Enhance chat functionality: implement history tracking for follow-up questions ...
-c0d62f1  Refactor Prompt.md: streamline content by removing redundant date entries and clarifying instructions ...
-e095408  Enhance AI Model Results Analysis Platform: extend result structure to include new fields for category ...
-b6ce072  Refactor result ingestion process: update file storage structure to save raw JSON directly ...
-f5f4e6c  Add column sorting functionality to results table: implement sorting for new numeric metrics ...
-33a135c  Add clear filters functionality to Results page: implement a button to reset all applied filters ...
-90840db  Update Makefile and README for testing enhancements: add new test commands to Makefile ...</div>
+<h3>A.5 Prompts inside the product (ChatService.java, temperature 0.2)</h3>
+<div class="prompt">SYSTEM: You are AMRAP's analytics assistant. Answer the user's question strictly from the CONTEXT chunks below. Each chunk [...] is labelled with its result id, model name, version, and iteration. If the context does not contain enough information to answer, say so plainly - do not invent numbers. When you cite a value, mention the model, version, and iteration it came from.
+REWRITE: Rewrite the latest user question into one standalone search sentence. Resolve pronouns such as them, those, and it using the conversation. Return only that search sentence, with no quotes.</div>
+<p class="why"><em>Principles:</em> role, grounding against hallucination, delimited RAG context, prompt chaining, structured output, temperature matched to the task.</p>
 </div>
 
 </body>
