@@ -124,7 +124,7 @@ public class ChatService {
 
         String context = renderContext(hits);
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(SYSTEM_PROMPT + "\nToday is " + LocalDate.now(ZoneId.systemDefault()) + "."));
+        messages.add(new SystemMessage(SYSTEM_PROMPT + "\nToday is " + LocalDate.now(properties.zoneId()) + "."));
         for (ChatTurn turn : history) {
             if ("assistant".equalsIgnoreCase(turn.role())) {
                 messages.add(new AssistantMessage(turn.text()));
@@ -205,14 +205,14 @@ public class ChatService {
         if (notBlank(request.fromIso()) || notBlank(request.toIso())) {
             return request;
         }
-        LocalDate day = relativeDay(request.question());
+        ZoneId zone = properties.zoneId();
+        LocalDate day = relativeDay(request.question(), zone);
         if (day == null) {
-            day = relativeDay(searchQuery);
+            day = relativeDay(searchQuery, zone);
         }
         if (day == null) {
             return request;
         }
-        ZoneId zone = ZoneId.systemDefault();
         ZonedDateTime start = day.atStartOfDay(zone);
         return new ChatRequest(
                 request.question(),
@@ -224,11 +224,10 @@ public class ChatService {
                 request.history());
     }
 
-    private static LocalDate relativeDay(String text) {
+    private static LocalDate relativeDay(String text, ZoneId zone) {
         if (text == null || text.isBlank()) {
             return null;
         }
-        ZoneId zone = ZoneId.systemDefault();
         if (YESTERDAY.matcher(text).find()) {
             return LocalDate.now(zone).minusDays(1);
         }

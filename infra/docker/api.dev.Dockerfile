@@ -1,8 +1,9 @@
-# Dev API image — source is mounted at runtime; restarts on .java changes.
+# Dev API image — source is mounted read-only at /src/apps/api and built in a
+# container-private copy; restarts on .java changes.
 FROM maven:3.9-eclipse-temurin-21
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends inotify-tools \
+  && apt-get install -y --no-install-recommends inotify-tools rsync \
   && rm -rf /var/lib/apt/lists/*
 
 COPY infra/docker/api-dev-entrypoint.sh /usr/local/bin/api-dev-entrypoint.sh

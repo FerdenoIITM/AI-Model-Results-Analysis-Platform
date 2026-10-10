@@ -134,7 +134,7 @@ See [`infra/db/seeds/README.md`](../infra/db/seeds/README.md) for creating the f
 
 | Extension | Used by | Install (Debian/Ubuntu host) |
 |-----------|---------|------------------------------|
-| `pgcrypto` | `gen_random_uuid()` on users and results | ships with Postgres |
+| `pgcrypto` | `crypt()` in `make superadmin` (created by the script if missing) | ships with Postgres |
 | `vector` | pgvector for RAG | `sudo apt-get install postgresql-16-pgvector` |
 
-The Compose `local-db` profile uses the `pgvector/pgvector:pg16` image which ships both.
+Each environment has its own host database (`AMRAP-Dev`, `AMRAP-Test`, `AMRAP-Prod`). An environment started with Compose profile `db` uses the `pgvector/pgvector:pg16` image instead, which ships both extensions.

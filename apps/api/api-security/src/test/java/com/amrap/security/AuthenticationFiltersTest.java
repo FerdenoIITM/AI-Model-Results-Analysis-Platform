@@ -1,6 +1,7 @@
 package com.amrap.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.amrap.domain.user.UserRole;
 import java.util.UUID;
@@ -22,6 +23,12 @@ class AuthenticationFiltersTest {
     @AfterEach
     void clear() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void ingestFilterRefusesToStartWithoutAKey() {
+        assertThatThrownBy(() -> new ApiKeyAuthenticationFilter(null)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new ApiKeyAuthenticationFilter("  ")).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

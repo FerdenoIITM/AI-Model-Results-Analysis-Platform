@@ -1,0 +1,21 @@
+# Test override: production-like images and their own ports, for manual QA.
+#   make test       # start      make down ENV=test   # stop
+# Not the automated test suite — that is `make check` (test/docker-compose.test.yml).
+# Postgres: the host database (POSTGRES_HOST in .env.test), or COMPOSE_PROFILES=db for a container.
+
+services:
+  db:
+    ports:
+      - "${DB_PORT:?set DB_PORT in the env file}:5432"
+
+  api:
+    ports:
+      - "${API_PORT:?set API_PORT in the env file}:${API_INTERNAL_PORT:-8080}"
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+
+  web:
+    ports:
+      - "${WEB_PORT:?set WEB_PORT in the env file}:80"

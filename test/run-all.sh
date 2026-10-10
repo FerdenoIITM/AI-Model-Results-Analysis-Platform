@@ -23,6 +23,16 @@ for suite in "${SUITES[@]}"; do
   fi
 done
 
+# Two runs at once would share apps/api/*/target and the test stack, and break each other
+# with errors that are not test failures (missing packages, "Error while storing the mojo status").
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$ROOT/test/.run-all.lock"
+  if ! flock -n 9; then
+    echo "Another test run (make check) is already in progress; wait for it to finish." >&2
+    exit 1
+  fi
+fi
+
 rm -rf "$REPORTS_DIR"
 mkdir -p "$REPORTS_DIR"
 : > "$REPORTS_DIR/status"
@@ -75,7 +85,7 @@ wants integration && run_suite integration backend_integration
 wants database && run_suite database "$ROOT/test/database/run.sh"
 
 if wants api || wants e2e; then
-  printf '\n==> %-12s starting isolated stack (project amrap-test)\n' "stack"
+  printf '\n==> %-12s starting isolated stack (project amrap-test-suite)\n' "stack"
   STACK_STARTED=1
   if "$ROOT/test/stack/stack.sh" up >"$REPORTS_DIR/stack-up.log" 2>&1; then
     wants api && run_suite api "$ROOT/test/stack/stack.sh" run npx vitest run --config vitest.config.ts \

@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 # Dev entrypoint: run Spring Boot and restart when Java sources change.
+#
+# The host source tree is mounted read-only at /src/apps/api and mirrored into
+# /workspace/apps/api, so Maven output (target/) stays inside the container and
+# never collides with host builds (make check, IDE) or leaves root-owned files.
 set -euo pipefail
 
-cd /workspace/apps/api
+SRC=/src/apps/api
+WORK=/workspace/apps/api
+
+sync_sources() {
+  rsync -a --delete --exclude 'target/' "$SRC/" "$WORK/"
+}
+
+mkdir -p "$WORK"
+sync_sources
+cd "$WORK"
 
 echo "==> AMRAP API (dev) — first start may take a few minutes (Maven download + compile)"
 
@@ -14,10 +27,10 @@ while true; do
   start_api &
   api_pid=$!
 
-  # Block until a Java source change (ignore target/ build output)
+  # Block until a source change on the host (ignore target/ build output)
   inotifywait -r -e modify,create,delete,move \
     --exclude '(^|/)target(/|$)' \
-    /workspace/apps/api \
+    "$SRC" \
     2>/dev/null || true
 
   echo ""
@@ -27,4 +40,5 @@ while true; do
   pkill -f 'api-bootstrap' 2>/dev/null || true
   wait "$api_pid" 2>/dev/null || true
   sleep 1
+  sync_sources
 done

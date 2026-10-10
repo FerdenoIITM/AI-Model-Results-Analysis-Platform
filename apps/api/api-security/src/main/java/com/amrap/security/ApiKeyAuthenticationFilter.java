@@ -32,7 +32,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private final String expectedKey;
 
     public ApiKeyAuthenticationFilter(
-            @Value("${amrap.rag.ingest-api-key:change-me-ingest-key}") String expectedKey) {
+            @Value("${amrap.rag.ingest-api-key}") String expectedKey) {
+        if (expectedKey == null || expectedKey.isBlank()) {
+            throw new IllegalStateException("amrap.rag.ingest-api-key (INGEST_API_KEY) must be set");
+        }
         this.expectedKey = expectedKey;
     }
 

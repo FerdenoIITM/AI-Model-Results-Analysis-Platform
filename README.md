@@ -67,21 +67,23 @@ Accounts are created by administrators; there is no self sign-up. Login uses JWT
 | Backend | Java 21, Spring Boot 3, Spring Security (JWT), Spring Data JPA, Spring AI |
 | Database | PostgreSQL 16 with the pgvector extension |
 | LLM / embeddings | Ollama running `llama3.2:3b` (chat) and `nomic-embed-text` (embeddings) |
-| Runtime | Docker Compose (api, web, ollama; optional Postgres and nginx) |
+| Runtime | Docker Compose: three environments (dev, test, prod) from one base file plus an override each |
 
 ## Project layout
 
 ```text
 apps/api/            Spring Boot API (Maven modules: domain, persistence, application, web, security, bootstrap)
 apps/web/            React frontend
-infra/db/migrations/ SQL migrations (applied manually)
-infra/db/seeds/      How to create the first superadmin
-infra/docker/        Dockerfiles and the web nginx config
+infra/db/migrations/ SQL migrations (applied automatically to the test/prod databases)
+infra/db/seeds/      How to create a superadmin by hand
+infra/docker/        Dockerfiles and the web nginx template (serves the app, proxies /api)
+env/                 Environment templates: dev.env.example, test.env.example, prod.env.example
+docker-compose*.yml  Shared base + dev / test / prod overrides
 packages/openapi/    OpenAPI spec (source of truth for the API)
 docs/                Architecture, data model, and API notes
-scripts/             Setup, hot-reload, and sample-data scripts
-data/results/        Raw result JSON files (bind-mounted into the API container)
-test/                Cross-stack tests: database SQL, API black-box, Playwright E2E, test stack, runner
+scripts/             Bootstrap, superadmin, hot-reload, and sample-data scripts
+data/results/        Raw result JSON files of the dev environment
+test/                Automated test suite: database SQL, API black-box, Playwright E2E, its own stack, runner
 ```
 
 ## Getting started
@@ -89,64 +91,75 @@ test/                Cross-stack tests: database SQL, API black-box, Playwright 
 ### 1. Prerequisites
 
 - Docker with Docker Compose.
-- PostgreSQL 16 with **pgvector**. Use either:
-  - your host Postgres, after `sudo apt-get install postgresql-16-pgvector`, or
-  - the bundled container: `docker compose --profile local-db up -d db`.
+- PostgreSQL 16 with **pgvector** on the host (`sudo apt-get install postgresql-16-pgvector`), with one database per environment: `AMRAP-Dev`, `AMRAP-Test` and `AMRAP-Prod`. Alternatively, an environment can run its own database container (`COMPOSE_PROFILES=db`).
 
-`./scripts/install-deps.sh` installs Docker and creates `.env` from `.env.example`. Add `--with-dev` to also install Java and Node for local development.
+`./scripts/install-deps.sh` installs Docker and creates `.env.dev`. Add `--with-dev` to also install Java and Node for local development.
 
-### 2. Configure
+### 2. Environments
 
-Edit `.env`:
+AMRAP has three isolated environments. Each has its own settings file, compose override, compose project (containers, network, volumes), ports and database:
 
-- `POSTGRES_*`: your database connection.
-- `JWT_SECRET`: a long random string.
-- `INGEST_API_KEY`: a fresh secret that scripts use to submit results.
-- `VITE_API_BASE_URL`: the API URL the browser should call (see [Sharing on your network](#sharing-on-your-network)).
+| Environment | Start | Stop | Settings | Compose files | Database | Default web URL |
+|-------------|-------|------|----------|---------------|----------|-----------------|
+| dev | `make dev` | `make dev-down` | `.env.dev` | `docker-compose.yml` + `docker-compose.dev.yml` | host Postgres `AMRAP-Dev` | http://localhost:5173 |
+| test | `make test` | `make test-down` | `.env.test` | `docker-compose.yml` + `docker-compose.test.yml` | host Postgres `AMRAP-Test` | http://localhost:5273 |
+| prod | `make prod` | `make prod-down` | `.env.prod` | `docker-compose.yml` + `docker-compose.prod.yml` | host Postgres `AMRAP-Prod` | http://localhost |
 
-### 3. Set up the database
+The database is chosen by `POSTGRES_*` in the env file. To give an environment a disposable Postgres container instead, set `COMPOSE_PROFILES=db` and `POSTGRES_HOST=db`; the migrations then run automatically on its first start.
 
-Apply the migrations in order (pgAdmin or `psql`):
+- **dev** mounts the source read-only: Vite hot reload for the web app, and the API restarts when `.java` files change. The API compiles inside its container, so it never writes into your `apps/api/*/target` folders. `make dev-local` is an alternative that runs the API with host Maven.
+- **test** is production-like (built images) on its own ports, for checking a build before prod. It is not the automated test suite; that is `make check`.
+- **prod** publishes only the web port. The API and Ollama are reachable only inside its compose network.
 
-1. `infra/db/migrations/V1__init.sql`
-2. `infra/db/migrations/V3__results_rag.sql`
-3. `infra/db/migrations/V4__result_metrics.sql`
+Other commands take `ENV=dev|test|prod`: `make logs ENV=test`, `make ps ENV=prod`, `make restart ENV=dev`, `make urls ENV=test`.
 
-Then create the first superadmin by following [`infra/db/seeds/README.md`](infra/db/seeds/README.md).
+**Configuration lives only in the env files.** Hosts, ports, credentials, model names and tuning are read from `.env.<env>`. The code, Dockerfiles and compose files do not hardcode them, and Compose refuses to start if a required secret is missing. The env files are git-ignored; their templates are committed in `env/`.
 
-### 4. Run
-
-**Packaged (production-like):**
+### 3. Configure
 
 ```bash
-make up      # builds images and starts api + web + ollama
-make down    # stop
-make logs    # follow logs
+make bootstrap ENV=dev     # also: ENV=test, ENV=prod
 ```
 
-- Web: http://localhost:5173
-- API: http://localhost:8080/api
+This copies `env/<env>.env.example` to `.env.<env>` and fills every `__GENERATE__` value (`JWT_SECRET`, `INGEST_API_KEY`, `SUPERADMIN_PASSWORD`) with a random secret. For dev, values from an old single `.env` are carried over. It never overwrites an existing file.
 
-`make up` rebuilds the images, so re-run it after code changes.
+Review the file, especially:
 
-**Development (hot reload):**
+- `POSTGRES_*`: the database connection. Fill in `POSTGRES_PASSWORD` with the password of `POSTGRES_USER` on your host Postgres.
+- `WEB_PORT`, `API_PORT`, `DB_PORT`, `OLLAMA_PORT`: published host ports (must differ between environments that run at the same time).
+- `TZ`: time zone for "today" in chat and for iteration IDs.
+- `SUPERADMIN_*`: the first account created by `make superadmin`.
+
+### 4. Set up the database
+
+**Host Postgres (default):** create the environment's database (`AMRAP-Dev`, `AMRAP-Test` or `AMRAP-Prod`) and apply `V1__init.sql`, `V3__results_rag.sql` and `V4__result_metrics.sql` from `infra/db/migrations` in order (pgAdmin or `psql`). Then create the first superadmin:
 
 ```bash
-sudo apt-get install -y maven inotify-tools   # once
-make down
-make dev
+make superadmin ENV=test      # uses SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD from .env.test
 ```
 
-The web app runs with Vite hot reload on http://localhost:5173. The API runs on the host with Maven and restarts when `.java` files change. Stop it with `Ctrl+C` and `make dev-down`.
+For demo data in dev, see [`infra/db/seeds/README.md`](infra/db/seeds/README.md).
 
-On first boot the `amrap-ollama-init` container downloads the models (about 2.3 GB). Chat and vectorization start working once it logs `Models ready.`
+**Database container (`COMPOSE_PROFILES=db`):** the migrations run automatically the first time the container starts. Start the environment, then run `make superadmin ENV=<env>`.
+
+### 5. Run
+
+```bash
+make dev                # or: make test / make prod
+make logs ENV=dev       # follow logs
+make dev-down           # stop (data is kept)
+```
+
+The browser always calls the API at `/api` on the same address as the page; the web server (nginx, or Vite in dev) forwards it to the API. `make test` and `make prod` rebuild the images, so re-run them after code changes.
+
+On the first start the `ollama-init` container downloads the models (about 2.3 GB) into the shared volume named by `OLLAMA_MODELS_VOLUME`; every environment reuses it. Chat and vectorization start working once it logs `Models ready.`
 
 ## Submitting results
 
-Send `POST /api/results` with the `X-Ingest-Key` header. Only `modelName`, `version`, and `payload` are required. `payload` can be any JSON. Metrics are percentages from 0 to 100.
+Send `POST /api/results` with the `X-Ingest-Key` header (`INGEST_API_KEY` from the environment's env file). Only `modelName`, `version`, and `payload` are required. `payload` can be any JSON. Metrics are percentages from 0 to 100. Use the environment's web address, for example `http://localhost:5173` for dev:
 
 ```bash
-curl -X POST http://localhost:8080/api/results \
+curl -X POST http://localhost:5173/api/results \
   -H "Content-Type: application/json" \
   -H "X-Ingest-Key: $INGEST_API_KEY" \
   -d '{
@@ -172,39 +185,37 @@ To load a few demo results:
 
 ```bash
 export INGEST_API_KEY=<your key>
-python3 scripts/ingest_sample_results.py
+AMRAP_API_BASE=http://localhost:5173/api python3 scripts/ingest_sample_results.py
 ```
 
 A superadmin can also submit from the website (**Submit result** on the Results page). Admin and member tokens are rejected with 403.
 
 ## Sharing on your network
 
-To let other machines on your LAN use the site, set `VITE_API_BASE_URL` in `.env` to your machine's address (for example `http://<your-ip>:8080/api`), then run `make up`. Others open `http://<your-ip>:5173`. The web container's nginx only serves the built site; it does not proxy `/api`, so the URL must point at the API itself.
-
-If your shell already exports `VITE_API_BASE_URL`, it overrides `.env`. Unset it before building.
+Other machines on your LAN open `http://<your-ip>:<WEB_PORT>` of the environment (for example `http://<your-ip>:5173` for dev). Nothing needs to be rebuilt or reconfigured: the page calls `/api` on the address it was loaded from, and the web server forwards it to the API.
 
 ## Testing
 
-Run everything with:
+The automated test suite is separate from the three environments: it starts its own disposable stack and never touches dev, test or prod data. Run everything with:
 
 ```bash
-make test
+make check
 ```
 
 You need Docker, Java 21 and Maven. Node is not needed on the host: frontend, API and E2E tests run in containers. The first run downloads images and dependencies, so it is slow; later runs reuse caches.
 
-`make test` runs six suites, prints a table of passed, failed and skipped tests with coverage locations, and exits non-zero if anything fails. Logs and reports go to `test/reports/`.
+`make check` runs six suites, prints a table of passed, failed and skipped tests with coverage locations, and exits non-zero if anything fails. `FAIL` means tests failed. `ERROR` means the suite stopped before its tests finished, for example a compile error. Its counts are then missing or partial, and the first errors from its log are printed under the table. Logs and reports go to `test/reports/`. Only one `make check` can run at a time.
 
 | Target | What it tests | Where the tests live |
 |--------|---------------|----------------------|
-| `make test-frontend` | React pages and components with mocked HTTP (Vitest, Testing Library, MSW), plus a type-check | `apps/web/src/**/*.test.ts(x)` |
-| `make test-backend` | Services, filter parsing, JWT and auth filters (JUnit, Mockito) | `apps/api/*/src/test/java/**/*Test.java` |
-| `make test-integration` | The Spring app against real Postgres + pgvector (Testcontainers): repository queries, every endpoint, security, database failure, concurrency | `apps/api/api-bootstrap/src/test/java/**/*IT.java` |
-| `make test-db` | The SQL schema directly: constraints, foreign keys, the trigger, indexes, and filter/sort/paging on 10,000 rows | `test/database/` |
-| `make test-api` | The running API over HTTP: status codes, response shapes, role matrix, invalid input, CORS, chat without an LLM | `test/api/` |
-| `make test-e2e` | The site in Chromium (Playwright): the results filter flow, sorting, pagination, Clear filters, the submit modal, navigation, user management, chat errors | `test/e2e/` |
+| `make check-frontend` | React pages and components with mocked HTTP (Vitest, Testing Library, MSW), plus a type-check | `apps/web/src/**/*.test.ts(x)` |
+| `make check-backend` | Services, filter parsing, JWT and auth filters (JUnit, Mockito) | `apps/api/*/src/test/java/**/*Test.java` |
+| `make check-integration` | The Spring app against real Postgres + pgvector (Testcontainers): repository queries, every endpoint, security, database failure, concurrency | `apps/api/api-bootstrap/src/test/java/**/*IT.java` |
+| `make check-db` | The SQL schema directly: constraints, foreign keys, the trigger, indexes, and filter/sort/paging on 10,000 rows | `test/database/` |
+| `make check-api` | The running API over HTTP: status codes, response shapes, role matrix, invalid input, CORS, chat without an LLM | `test/api/` |
+| `make check-e2e` | The site in Chromium (Playwright): the results filter flow, sorting, pagination, Clear filters, the submit modal, navigation, user management, chat errors | `test/e2e/` |
 
-`test-api` and `test-e2e` start an isolated stack from `test/docker-compose.test.yml` (compose project `amrap-test`, ports 15432, 18080 and 18081). It has its own database on tmpfs, test-only accounts from `test/fixtures/seed.sql`, and no Ollama, so your normal data and containers are never touched. The stack is torn down afterwards; use `KEEP_STACK=1 make test-e2e` to keep it, or `make test-stack-up` / `make test-stack-down` to manage it yourself.
+`check-api` and `check-e2e` start an isolated stack from `test/docker-compose.test.yml` (compose project `amrap-test-suite`, ports 15432, 18080 and 18081). It has its own database on tmpfs, test-only accounts from `test/fixtures/seed.sql`, and no Ollama. The stack is torn down afterwards; use `KEEP_STACK=1 make check-e2e` to keep it, or `make check-stack-up` / `make check-stack-down` to manage it yourself.
 
 Coverage reports: `apps/web/coverage/index.html` (frontend) and `apps/api/api-bootstrap/target/site/jacoco-aggregate/index.html` (backend unit + integration).
 

@@ -16,7 +16,7 @@ case "${1:-}" in
   up)
     echo "Building API jar..."
     (cd "$ROOT/apps/api" && mvn -q -B -pl api-bootstrap -am package -DskipTests)
-    echo "Starting test stack (project amrap-test)..."
+    echo "Starting test stack (project amrap-test-suite)..."
     "${COMPOSE[@]}" up -d --build --wait --quiet-pull
     "${COMPOSE[@]}" ps --format '  {{.Service}}: {{.State}} {{.Status}}'
     ;;
@@ -28,7 +28,7 @@ case "${1:-}" in
     mkdir -p "$CACHE" "$REPORTS"
     docker run --rm --init --ipc=host \
       -u "$(id -u):$(id -g)" -e HOME=/tmp -e CI=1 \
-      --network amrap-test_default \
+      --network amrap-test-suite_default \
       -v "$ROOT/test:/work/test" \
       -v "$CACHE:/work/test/node_modules" \
       -v "$REPORTS:/reports" \

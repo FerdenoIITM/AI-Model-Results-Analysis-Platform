@@ -1,8 +1,8 @@
-# Isolated stack for API and end-to-end tests (compose project "amrap-test").
+# Isolated stack for API and end-to-end tests (compose project "amrap-test-suite").
 # Own database on tmpfs, own ports, no Ollama: the API points at an unreachable LLM URL,
 # so chat must fail cleanly and the vectorization worker never runs during a test session.
-# Start/stop with `make test-stack-up` / `make test-stack-down`.
-name: amrap-test
+# Start/stop with `make check-stack-up` / `make check-stack-down`.
+name: amrap-test-suite
 
 services:
   db:
@@ -61,7 +61,9 @@ services:
       dockerfile: infra/docker/web.Dockerfile
       args:
         VITE_API_BASE_URL: /api
-    image: amrap-test-web
+    image: amrap-test-suite-web
+    environment:
+      API_UPSTREAM: api:8080
 
   gateway:
     image: nginx:1.27-alpine

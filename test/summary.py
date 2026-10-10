@@ -52,6 +52,39 @@ def database():
     return (p, f, s)
 
 
+MAVEN_NOISE = (
+    "To see the full stack trace",
+    "Re-run Maven",
+    "For more information",
+    "After correcting the problems",
+    "mvn <args> -rf",
+    "-> [Help",
+    "Failed to execute goal",
+)
+
+
+def error_reason(name):
+    """Why a suite stopped without (all) test results: the first build errors in its log."""
+    log = os.path.join(reports, f"{name}.log")
+    if not os.path.exists(log):
+        return ["test stack did not start (see test/reports/stack-up.log)"]
+    lines = [l.rstrip() for l in open(log, errors="replace")]
+    reasons = []
+    for line in lines:
+        if not line.startswith("[ERROR]"):
+            continue
+        text = line[len("[ERROR]"):].strip()
+        if not text or any(text.startswith(n) for n in MAVEN_NOISE) or text.startswith("Tests run:"):
+            continue
+        if text not in reasons:
+            reasons.append(text)
+        if len(reasons) == 3:
+            break
+    if not reasons:
+        reasons = [l.strip() for l in lines if l.strip()][-3:]
+    return reasons
+
+
 def jacoco_line_pct(csv_path):
     if not os.path.exists(csv_path):
         return None
@@ -91,11 +124,17 @@ print(f"{'Suite':<40}{'Result':<9}{'Passed':>8}{'Failed':>8}{'Skipped':>9}{'Time
 print("-" * 86)
 totals = [0, 0, 0]
 any_failed = False
+errors = []
 for name, code, seconds in statuses:
     counts = counters[name]()
-    failed_suite = code != 0 or (counts is not None and counts[1] > 0)
-    any_failed |= failed_suite
-    result = "FAIL" if failed_suite else "PASS"
+    if counts is not None and counts[1] > 0:
+        result = "FAIL"
+    elif code != 0:
+        result = "ERROR"
+        errors.append(name)
+    else:
+        result = "PASS"
+    any_failed |= result != "PASS"
     if counts is None:
         cells = f"{'-':>8}{'-':>8}{'-':>9}"
     else:
@@ -105,6 +144,14 @@ for name, code, seconds in statuses:
 print("-" * 86)
 print(f"{'Total':<40}{'FAIL' if any_failed else 'PASS':<9}{totals[0]:>8}{totals[1]:>8}{totals[2]:>9}")
 print("=" * 86)
+if errors:
+    print("ERROR = the suite stopped before its tests finished (build, compile or setup problem),")
+    print("        so its counts are missing ('-') or cover only the tests that ran before it stopped.")
+    for name in errors:
+        print(f"  {labels[name]} (test/reports/{name}.log):")
+        for reason in error_reason(name):
+            print(f"    {reason[:200]}")
+    print()
 
 names = {s[0] for s in statuses}
 coverage = []

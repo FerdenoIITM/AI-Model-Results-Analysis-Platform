@@ -65,12 +65,7 @@ if [[ "$WITH_DEV" -eq 1 ]]; then
   fi
 fi
 
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  echo "==> Created .env from .env.example — edit POSTGRES_* and JWT_SECRET before make up"
-else
-  echo "==> .env already exists — skipped"
-fi
+"$ROOT_DIR/scripts/bootstrap.sh" dev
 
 echo
 echo "Done."
@@ -82,6 +77,6 @@ if [[ "$WITH_DEV" -eq 1 ]]; then
 fi
 echo
 echo "Next steps:"
-echo "  1. Edit .env with your local Postgres credentials"
+echo "  1. Edit .env.dev with your local Postgres credentials"
 echo "  2. If you were just added to the docker group, log out/in (or: newgrp docker)"
-echo "  3. make up"
+echo "  3. make dev"

@@ -5,9 +5,9 @@ spring:
   application:
     name: amrap-api
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/${POSTGRES_DB:amrap}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:amrap}
     username: ${POSTGRES_USER:amrap}
-    password: ${POSTGRES_PASSWORD:changeme}
+    password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -51,16 +51,19 @@ spring:
 
 amrap:
   security:
-    jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
+    jwt-secret: ${JWT_SECRET}
     jwt-expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   rag:
     storage-dir: ${RESULTS_STORAGE_DIR:./data/results}
-    ingest-api-key: ${INGEST_API_KEY:change-me-ingest-key}
+    ingest-api-key: ${INGEST_API_KEY}
     worker-delay-ms: ${RAG_WORKER_DELAY_MS:10000}
     worker-batch-size: ${RAG_WORKER_BATCH_SIZE:5}
-    chunk-size: 800
-    chunk-overlap: 100
-    top-k: 6
+    chunk-size: ${RAG_CHUNK_SIZE:800}
+    chunk-overlap: ${RAG_CHUNK_OVERLAP:100}
+    top-k: ${RAG_TOP_K:6}
+    # IANA zone used for "today"/"yesterday" in chat and for generated iteration IDs.
+    # Empty means the JVM default.
+    timezone: ${TZ:}
 
 management:
   endpoints:

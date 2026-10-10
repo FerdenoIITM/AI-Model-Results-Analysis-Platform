@@ -11,7 +11,8 @@ Thumbs.db
 
 # Env / secrets
 .env
-.env.local
+.env.*
+!env/*.env.example
 *.pem
 
 # Java / Maven
@@ -43,3 +44,4 @@ coverage/
 
 # Test reports
 test/reports/
+test/.run-all.lock

@@ -118,6 +118,20 @@ class ChatServiceTest {
     }
 
     @Test
+    void todayUsesConfiguredTimezone() {
+        RagProperties properties = new RagProperties();
+        properties.setTimezone("Pacific/Kiritimati");
+        ChatService zoned = new ChatService(properties, vectorStore, chatModel);
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+
+        zoned.ask(request("What ran today?", null, null, null, null));
+
+        ZoneId zone = ZoneId.of("Pacific/Kiritimati");
+        String start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toString();
+        assertThat(captureSearch().getFilterExpression().toString()).contains(start);
+    }
+
+    @Test
     void explicitDatesWinOverRelativeWords() {
         when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
 

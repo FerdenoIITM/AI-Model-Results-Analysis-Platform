@@ -34,8 +34,8 @@
 <div class="meta">
   <div><strong>Course:</strong> CS5013 PAI &nbsp;|&nbsp; Pre-Evaluation Deliverable<br>
        <strong>Name:</strong> Ferdeno &nbsp;|&nbsp; <strong>Roll No:</strong> EE26S062</div>
-  <div style="text-align:right"><strong>Date:</strong> 08 October 2026<br>
-       <strong>Repository:</strong> github.com/FerdenoIITM/AI-Model-Results-Analysis-Platform (branch <code>dev</code>)</div>
+  <div style="text-align:right"><br>
+       <strong>Repository:</strong> github.com/FerdenoIITM/AI-Model-Results-Analysis-Platform</div>
 </div>
 
 <h2>1. Project at a Glance</h2>
@@ -44,8 +44,7 @@ questions about them. External clients submit results (raw JSON plus metadata su
 ingest API. The JSON is written to disk, the metadata to PostgreSQL, and a background worker embeds the content into
 <strong>pgvector</strong> so a local <strong>Ollama</strong> LLM can answer questions with retrieval-augmented generation (RAG).
 The stack is Spring Boot 3 (Java 21, multi-module Maven), React 18 + Vite, PostgreSQL 16 and Docker Compose, with
-role-based access (superadmin, admin, member) secured by JWT. The project was built over three weeks (20 Sep to 8 Oct 2026)
-with an AI coding assistant. The practices below are how I kept that collaboration correct, traceable and maintainable.</p>
+role-based access (superadmin, admin, member) secured by JWT. The practices below are how I kept that collaboration correct, traceable and maintainable.</p>
 
 <h2>2. Prompt Engineering</h2>
 <p>My prompts evolved from open questions ("how should I organize a website?") into <strong>specifications</strong> that a

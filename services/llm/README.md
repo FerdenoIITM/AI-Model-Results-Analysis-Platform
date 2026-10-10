@@ -6,4 +6,4 @@ Reserved slot for a standalone LLM worker.
 
 **When to use this folder:** extract the LLM worker here if Spring AI grows too large, or if a Python/LangChain service is required later — without restructuring `apps/api` or `apps/web`.
 
-Docker image stub: `infra/docker/llm.Dockerfile` (commented out in `docker-compose.yml`).
+No image or compose service exists for it yet; add an `infra/docker/llm.Dockerfile` and a service in `docker-compose.yml` when it is extracted.

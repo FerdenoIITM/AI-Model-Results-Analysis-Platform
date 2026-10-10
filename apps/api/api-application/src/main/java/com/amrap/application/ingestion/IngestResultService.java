@@ -12,7 +12,6 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
@@ -62,7 +61,7 @@ public class IngestResultService {
             result.setId(id);
             result.setModelName(cmd.modelName().trim());
             result.setVersion(cmd.version().trim());
-            result.setIterationId(ITERATION_ID.format(ZonedDateTime.now(ZoneId.systemDefault())));
+            result.setIterationId(ITERATION_ID.format(ZonedDateTime.now(properties.zoneId())));
             result.setCategory(category);
             result.setSubCategory(subCategory);
             result.setConfidenceAccuracy(cmd.confidenceAccuracy());

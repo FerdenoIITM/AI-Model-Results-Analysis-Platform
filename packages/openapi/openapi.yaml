@@ -4,8 +4,8 @@ info:
   version: 0.4.0
   description: Auth, User Management, Result Ingestion, Filtering, and RAG Chat
 servers:
-  - url: http://localhost:8080/api
-    description: Local API
+  - url: /api
+    description: Same origin as the web app (every environment serves the API at /api)
 
 paths:
   /auth/login:

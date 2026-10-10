@@ -22,11 +22,11 @@ class PlatformIT extends AbstractIntegrationTest {
     @Test
     void corsPreflightFromAnotherOriginIsAllowed() throws Exception {
         mvc.perform(options("/api/auth/login")
-                        .header("Origin", "http://172.16.100.74:5173")
+                        .header("Origin", "http://lan-client.example:5173")
                         .header("Access-Control-Request-Method", "POST")
                         .header("Access-Control-Request-Headers", "content-type,authorization"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://172.16.100.74:5173"));
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://lan-client.example:5173"));
     }
 
     @Test

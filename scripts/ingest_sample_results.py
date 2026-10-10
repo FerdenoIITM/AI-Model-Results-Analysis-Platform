@@ -3,12 +3,10 @@
 
 The server assigns iterationId (yyyyMMddHHmmss). Do not send it.
 
-Usage:
-  export INGEST_API_KEY=change-me-ingest-key   # match the API's INGEST_API_KEY
+Usage (both values come from the target environment, e.g. .env.dev):
+  export INGEST_API_KEY=<INGEST_API_KEY of the environment>
+  export AMRAP_API_BASE=http://localhost:<WEB_PORT>/api
   python3 scripts/ingest_sample_results.py
-
-Optional:
-  AMRAP_API_BASE=http://localhost:8080/api python3 scripts/ingest_sample_results.py
 """
 
 from __future__ import annotations
@@ -19,8 +17,10 @@ import sys
 import urllib.error
 import urllib.request
 
-API_BASE = os.environ.get("AMRAP_API_BASE", "http://localhost:8080/api").rstrip("/")
-INGEST_KEY = os.environ.get("INGEST_API_KEY", "change-me-ingest-key")
+API_BASE = os.environ.get("AMRAP_API_BASE", "").rstrip("/")
+INGEST_KEY = os.environ.get("INGEST_API_KEY", "")
+if not API_BASE or not INGEST_KEY:
+    sys.exit("Set AMRAP_API_BASE (e.g. http://localhost:5173/api) and INGEST_API_KEY first.")
 
 # Filter columns live next to payload. Metrics are percentage points, 0 to 100.
 SAMPLES = [

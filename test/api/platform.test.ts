@@ -27,13 +27,13 @@ describe("platform", () => {
     const res = await fetch(`${API_ORIGIN}/api/results`, {
       method: "OPTIONS",
       headers: {
-        Origin: "http://172.16.100.74:5173",
+        Origin: "http://lan-client.example:5173",
         "Access-Control-Request-Method": "GET",
         "Access-Control-Request-Headers": "authorization,content-type",
       },
     });
     expect(res.status).toBe(200);
-    expect(res.headers.get("access-control-allow-origin")).toBe("http://172.16.100.74:5173");
+    expect(res.headers.get("access-control-allow-origin")).toBe("http://lan-client.example:5173");
     expect(res.headers.get("access-control-allow-methods")).toContain("GET");
     expect(res.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("authorization");
   });

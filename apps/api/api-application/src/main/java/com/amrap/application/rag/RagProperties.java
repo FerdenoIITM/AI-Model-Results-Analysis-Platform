@@ -1,5 +1,6 @@
 package com.amrap.application.rag;
 
+import java.time.ZoneId;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Configuration for result ingestion + vectorization + RAG chat. */
@@ -9,8 +10,8 @@ public class RagProperties {
     /** Directory on disk where ingested result JSON files are stored. */
     private String storageDir = "./data/results";
 
-    /** Shared secret required on the POST /api/results header `X-Ingest-Key`. */
-    private String ingestApiKey = "change-me-ingest-key";
+    /** Shared secret required on the POST /api/results header `X-Ingest-Key`. Set via INGEST_API_KEY. */
+    private String ingestApiKey;
 
     /** Milliseconds between vectorization worker polls. */
     private long workerDelayMs = 10_000L;
@@ -26,6 +27,21 @@ public class RagProperties {
 
     /** Top-K chunks fetched from the vector store per chat question. */
     private int topK = 6;
+
+    /** IANA time zone for "today"/"yesterday" and iteration IDs; blank means the JVM default. */
+    private String timezone;
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    public ZoneId zoneId() {
+        return timezone == null || timezone.isBlank() ? ZoneId.systemDefault() : ZoneId.of(timezone.trim());
+    }
 
     public String getStorageDir() {
         return storageDir;
