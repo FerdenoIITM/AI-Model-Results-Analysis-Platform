@@ -50,12 +50,19 @@ class ChatApiIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void unknownUiModelFilterReturnsNoMatchWithoutSearch() throws Exception {
+        ask("{\"question\":\"What is the recall?\",\"modelNames\":[\"CardioNet\"]}", bearer(member))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer").value(org.hamcrest.Matchers.containsString("match your filters")));
+    }
+
+    @Test
     void answersWithCitations() throws Exception {
         UUID resultId = UUID.randomUUID();
         when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(new Document(
                 "recall: 94.2", Map.of("result_id", resultId.toString(), "model_name", "CardioNet", "chunk_index", 0))));
 
-        ask("{\"question\":\"What is the recall?\",\"modelName\":\"CardioNet\"}", bearer(member))
+        ask("{\"question\":\"What is the recall?\"}", bearer(member))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.answer").value("CardioNet recall is 94.2"))
                 .andExpect(jsonPath("$.citations[0].resultId").value(resultId.toString()))
@@ -91,9 +98,6 @@ class ChatApiIT extends AbstractIntegrationTest {
         ask("{\"question\":\"\"}", bearer(member)).andExpect(status().isBadRequest());
         ask("{}", bearer(member)).andExpect(status().isBadRequest());
         ask("{\"question\":\"" + "q".repeat(2001) + "\"}", bearer(member)).andExpect(status().isBadRequest());
-        ask("{\"question\":\"q\",\"fromIso\":\"last tuesday\"}", bearer(member))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid ISO timestamp: last tuesday"));
         ask("{\"question\":42,\"history\":\"nope\"}", bearer(member)).andExpect(status().isBadRequest());
     }
 

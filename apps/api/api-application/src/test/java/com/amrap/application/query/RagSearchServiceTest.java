@@ -59,6 +59,6 @@ class RagSearchServiceTest {
     }
 
     private static ChatRequest req(String q) {
-        return new ChatRequest(q, null, null, null, null, null, null);
+        return new ChatRequest(q, null, null, null, null);
     }
 }

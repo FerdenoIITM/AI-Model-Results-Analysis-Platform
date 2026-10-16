@@ -3,8 +3,9 @@ import Markdown from "react-markdown";
 import { useLocation } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "../../features/auth/AuthContext";
-import { sendChat } from "../../shared/api/client";
-import type { ChatCitation } from "../../shared/api/types";
+import { MultiSelectFilter } from "../../features/results/MultiSelectFilter";
+import { fetchFilterOptions, sendChat } from "../../shared/api/client";
+import type { FilterOptions } from "../../shared/api/types";
 
 type Role = "user" | "assistant";
 
@@ -12,7 +13,6 @@ interface ChatMessage {
   id: string;
   role: Role;
   text: string;
-  citations?: ChatCitation[];
   error?: boolean;
 }
 
@@ -20,24 +20,13 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function withSelected(options: string[], selected: string[]): string[] {
+  const seen = new Set(options);
+  return [...options, ...selected.filter((item) => !seen.has(item))];
 }
 
-function todayIsoRange(): { from: string; to: string } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return { from: start.toISOString(), to: end.toISOString() };
+function isAbort(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
 }
 
 export function ChatPage() {
@@ -47,11 +36,17 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
-  const [modelFilter, setModelFilter] = useState("");
-  const [versionFilter, setVersionFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState<"all" | "today">("all");
+  const [models, setModels] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [subCategories, setSubCategories] = useState<string[]>([]);
+  const [options, setOptions] = useState<FilterOptions>({ models: [], categories: [], subCategories: [] });
   const listRef = useRef<HTMLDivElement>(null);
   const catchUpScroll = useRef(false);
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+  const subCategoriesRef = useRef(subCategories);
+  subCategoriesRef.current = subCategories;
+  const categoryKey = categories.join("\u0000");
 
   useEffect(() => {
     const el = listRef.current;
@@ -76,6 +71,25 @@ export function ChatPage() {
     catchUpScroll.current = false;
   }, [chatVisible]);
 
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    fetchFilterOptions(token, categoriesRef.current, controller.signal)
+      .then((opts) => {
+        setOptions(opts);
+        const allowed = new Set(opts.subCategories);
+        const kept = subCategoriesRef.current.filter((item) => allowed.has(item));
+        if (kept.length !== subCategoriesRef.current.length) {
+          setSubCategories(kept);
+        }
+      })
+      .catch((err: unknown) => {
+        if (isAbort(err)) return;
+        // Options stay empty; chat still works without scoped filters.
+      });
+    return () => controller.abort();
+  }, [token, categoryKey]);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!token || !question.trim() || sending) return;
@@ -89,15 +103,13 @@ export function ChatPage() {
     setQuestion("");
     setSending(true);
 
-    const range = dateFilter === "today" ? todayIsoRange() : null;
     const history = messages.map((m) => ({ role: m.role, text: m.text }));
     try {
       const res = await sendChat(token, {
         question: userMsg.text,
-        modelName: modelFilter.trim() || undefined,
-        version: versionFilter.trim() || undefined,
-        fromIso: range?.from,
-        toIso: range?.to,
+        modelNames: models.length > 0 ? models : undefined,
+        categories: categories.length > 0 ? categories : undefined,
+        subCategories: subCategories.length > 0 ? subCategories : undefined,
         history: history.length > 0 ? history : undefined,
       });
       setMessages((prev) => [
@@ -106,7 +118,6 @@ export function ChatPage() {
           id: newId(),
           role: "assistant",
           text: res.answer,
-          citations: res.citations,
         },
       ]);
     } catch (err) {
@@ -138,29 +149,24 @@ export function ChatPage() {
       </div>
 
       <div className="grid">
-        <label>
-          Model
-          <input
-            value={modelFilter}
-            onChange={(e) => setModelFilter(e.target.value)}
-            placeholder="e.g. M1"
-          />
-        </label>
-        <label>
-          Version
-          <input
-            value={versionFilter}
-            onChange={(e) => setVersionFilter(e.target.value)}
-            placeholder="e.g. 1.0.0"
-          />
-        </label>
-        <label>
-          Date
-          <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}>
-            <option value="all">All time</option>
-            <option value="today">Today</option>
-          </select>
-        </label>
+        <MultiSelectFilter
+          label="Model"
+          options={withSelected(options.models, models)}
+          selected={models}
+          onChange={setModels}
+        />
+        <MultiSelectFilter
+          label="Category"
+          options={withSelected(options.categories, categories)}
+          selected={categories}
+          onChange={setCategories}
+        />
+        <MultiSelectFilter
+          label="Sub Category"
+          options={withSelected(options.subCategories, subCategories)}
+          selected={subCategories}
+          onChange={setSubCategories}
+        />
       </div>
 
       <div className="chat-list" ref={listRef}>
@@ -206,26 +212,6 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       ) : (
         <div className="chat-bubble-text">{message.text}</div>
       )}
-      {message.citations && message.citations.length > 0 ? (
-        <details className="chat-citations">
-          <summary>Sources ({message.citations.length})</summary>
-          <ul>
-            {message.citations.map((c, i) => (
-              <li key={`${c.resultId ?? "x"}-${i}`}>
-                <strong>{c.modelName ?? "?"}</strong> · v{c.version ?? "?"} · iter{" "}
-                {c.iterationId ?? "?"}
-                {typeof c.score === "number" ? (
-                  <span className="muted"> (score {c.score.toFixed(3)})</span>
-                ) : null}
-                <br />
-                <span className="muted">
-                  result {c.resultId ?? "unknown"} · {formatDateTime(c.insertedAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
     </div>
   );
 }

@@ -2,11 +2,9 @@ package com.amrap.application.query;
 
 import com.amrap.application.common.AppException;
 import com.amrap.application.rag.RagProperties;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -47,12 +45,11 @@ public class RagSearchService {
         if (!available()) {
             throw new AppException(503, "Vector store is not configured. Start Ollama and restart the API.");
         }
-        ChatRequest scoped = withRelativeDay(request, searchQuery);
         SearchRequest.Builder builder = SearchRequest.builder()
                 .query(searchQuery)
                 .topK(properties.getTopK());
 
-        Filter.Expression filter = buildFilter(scoped, restrictToResultIds);
+        Filter.Expression filter = buildFilter(request.question(), searchQuery, restrictToResultIds);
         if (filter != null) {
             builder.filterExpression(filter);
         }
@@ -72,27 +69,22 @@ public class RagSearchService {
         }
     }
 
-    private Filter.Expression buildFilter(ChatRequest r, List<UUID> restrictToResultIds) {
+    private Filter.Expression buildFilter(String question, String searchQuery, List<UUID> restrictToResultIds) {
         FilterExpressionBuilder b = new FilterExpressionBuilder();
         List<FilterExpressionBuilder.Op> parts = new ArrayList<>();
 
-        if (notBlank(r.modelName())) {
-            parts.add(b.eq("model_name", r.modelName().trim()));
+        ZoneId zone = properties.zoneId();
+        LocalDate day = relativeDay(question, zone);
+        if (day == null) {
+            day = relativeDay(searchQuery, zone);
         }
-        if (notBlank(r.version())) {
-            parts.add(b.eq("version", r.version().trim()));
+        if (day != null) {
+            ZonedDateTime start = day.atStartOfDay(zone);
+            parts.add(b.gte("inserted_at", start.toInstant().toString()));
+            parts.add(b.lte("inserted_at", start.plusDays(1).toInstant().toString()));
         }
-        if (notBlank(r.iterationId())) {
-            parts.add(b.eq("iteration_id", r.iterationId().trim()));
-        }
-        if (notBlank(r.fromIso())) {
-            parts.add(b.gte("inserted_at", parseIso(r.fromIso())));
-        }
-        if (notBlank(r.toIso())) {
-            parts.add(b.lte("inserted_at", parseIso(r.toIso())));
-        }
+
         if (restrictToResultIds != null && !restrictToResultIds.isEmpty() && restrictToResultIds.size() <= 20) {
-            // Spring AI in() with string ids; post-filter still applied for safety.
             List<Object> values = new ArrayList<>(restrictToResultIds.size());
             for (UUID id : restrictToResultIds) {
                 values.add(id.toString());
@@ -129,29 +121,6 @@ public class RagSearchService {
         return out;
     }
 
-    ChatRequest withRelativeDay(ChatRequest request, String searchQuery) {
-        if (notBlank(request.fromIso()) || notBlank(request.toIso())) {
-            return request;
-        }
-        ZoneId zone = properties.zoneId();
-        LocalDate day = relativeDay(request.question(), zone);
-        if (day == null) {
-            day = relativeDay(searchQuery, zone);
-        }
-        if (day == null) {
-            return request;
-        }
-        ZonedDateTime start = day.atStartOfDay(zone);
-        return new ChatRequest(
-                request.question(),
-                request.modelName(),
-                request.version(),
-                request.iterationId(),
-                start.toInstant().toString(),
-                start.plusDays(1).toInstant().toString(),
-                request.history());
-    }
-
     private static LocalDate relativeDay(String text, ZoneId zone) {
         if (text == null || text.isBlank()) {
             return null;
@@ -163,17 +132,5 @@ public class RagSearchService {
             return LocalDate.now(zone);
         }
         return null;
-    }
-
-    private static String parseIso(String iso) {
-        try {
-            return Instant.parse(iso.trim()).toString();
-        } catch (DateTimeParseException ex) {
-            throw new AppException(400, "Invalid ISO timestamp: " + iso);
-        }
-    }
-
-    private static boolean notBlank(String s) {
-        return s != null && !s.isBlank();
     }
 }

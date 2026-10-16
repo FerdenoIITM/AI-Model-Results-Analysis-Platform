@@ -91,6 +91,8 @@ public class VectorizationWorker {
             meta.put("model_name", r.getModelName());
             meta.put("version", r.getVersion());
             meta.put("iteration_id", r.getIterationId());
+            meta.put("category", r.getCategory());
+            meta.put("sub_category", r.getSubCategory());
             meta.put("inserted_at", r.getInsertedAt() != null ? r.getInsertedAt().toString() : null);
             docs.add(new Document(chunks.get(i), meta));
         }

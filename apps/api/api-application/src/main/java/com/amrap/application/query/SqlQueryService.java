@@ -117,26 +117,18 @@ public class SqlQueryService {
     }
 
     private static String uiConstraints(ChatRequest request) {
-        StringBuilder sb = new StringBuilder("Hard filters from the UI (must apply in WHERE if relevant):\n");
+        StringBuilder sb = new StringBuilder("Hard filters from the UI (must apply in WHERE):\n");
         boolean any = false;
-        if (notBlank(request.modelName())) {
-            sb.append("- model_name = '").append(escape(request.modelName().trim())).append("'\n");
+        if (!request.modelNames().isEmpty()) {
+            sb.append("- model_name IN (").append(sqlStringList(request.modelNames())).append(")\n");
             any = true;
         }
-        if (notBlank(request.version())) {
-            sb.append("- version = '").append(escape(request.version().trim())).append("'\n");
+        if (!request.categories().isEmpty()) {
+            sb.append("- category IN (").append(sqlStringList(request.categories())).append(")\n");
             any = true;
         }
-        if (notBlank(request.iterationId())) {
-            sb.append("- iteration_id = '").append(escape(request.iterationId().trim())).append("'\n");
-            any = true;
-        }
-        if (notBlank(request.fromIso())) {
-            sb.append("- inserted_at >= '").append(escape(request.fromIso().trim())).append("'\n");
-            any = true;
-        }
-        if (notBlank(request.toIso())) {
-            sb.append("- inserted_at <= '").append(escape(request.toIso().trim())).append("'\n");
+        if (!request.subCategories().isEmpty()) {
+            sb.append("- sub_category IN (").append(sqlStringList(request.subCategories())).append(")\n");
             any = true;
         }
         if (!any) {
@@ -145,8 +137,15 @@ public class SqlQueryService {
         return sb.toString();
     }
 
-    private static boolean notBlank(String s) {
-        return s != null && !s.isBlank();
+    private static String sqlStringList(List<String> values) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append('\'').append(escape(values.get(i))).append('\'');
+        }
+        return sb.toString();
     }
 
     private static String escape(String s) {

@@ -601,6 +601,8 @@ select:disabled {
   position: relative;
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
+  align-content: start;
 }
 
 .multi-select-label {
@@ -616,6 +618,10 @@ select:disabled {
   font: inherit;
   cursor: pointer;
   min-height: 2.6rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .multi-select-summary {
@@ -625,13 +631,64 @@ select:disabled {
   white-space: nowrap;
 }
 
+.multi-select-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.multi-select-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  padding: 0.15rem 0.2rem 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f3f6f4;
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.multi-select-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.multi-select-chip-remove {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+}
+
+.multi-select-chip-remove:hover {
+  color: var(--ink);
+  background: #e4ebe7;
+}
+
 .multi-select-panel {
   position: absolute;
   z-index: 20;
   top: calc(100% + 0.25rem);
   left: 0;
   right: 0;
-  min-width: 14rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -639,6 +696,23 @@ select:disabled {
   padding: 0.5rem;
   display: grid;
   gap: 0.4rem;
+}
+
+.multi-select-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.multi-select-action {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.82rem;
+  min-height: auto;
+}
+
+.multi-select-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .multi-select-panel ul {

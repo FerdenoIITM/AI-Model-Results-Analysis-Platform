@@ -89,7 +89,7 @@ describe("POST /api/chat without a language model", () => {
     ["empty question", { question: "" }],
     ["blank question", { question: "   " }],
     ["missing question", {}],
-    ["invalid date", { question: "q", fromIso: "yesterday-ish" }],
+    ["model name too long", { question: "q", modelNames: ["m".repeat(256)] }],
   ])("rejects an %s with 400", async (_name, body) => {
     const res = await api("/chat", { method: "POST", token: await tokenFor("member"), json: body });
     expect(res.status).toBe(400);

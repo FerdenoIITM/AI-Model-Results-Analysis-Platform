@@ -7,7 +7,7 @@ import { largeResults, makeResult } from "../../test/fixtures";
 import { renderApp, tableRows } from "../../test/render";
 import { API, db, lastResultsQuery, server } from "../../test/server";
 
-const COL = { model: 0, version: 1, category: 3, subCategory: 4, confidence: 5, sensitivity: 6, size: 11, vectorized: 13 };
+const COL = { model: 0, version: 1, category: 3, subCategory: 4, confidence: 5, sensitivity: 6, inserted: 11, vectorized: 12 };
 
 async function settled() {
   await waitFor(() => {
@@ -33,13 +33,15 @@ function filterBar() {
 }
 
 function multi(label: string) {
-  const root = screen.getByText(label, { selector: ".multi-select-label" }).closest(".multi-select") as HTMLElement;
+  const bar = filterBar();
+  const root = bar.getByText(label, { selector: ".multi-select-label" }).closest(".multi-select") as HTMLElement;
   return within(root);
 }
 
 async function toggleOptions(user: UserEvent, label: string, ...options: string[]) {
   const m = multi(label);
-  if (m.getByRole("button").getAttribute("aria-expanded") !== "true") await user.click(m.getByRole("button"));
+  const trigger = m.getByRole("button", { name: label });
+  if (trigger.getAttribute("aria-expanded") !== "true") await user.click(trigger);
   for (const option of options) {
     await user.click(await m.findByRole("checkbox", { name: option }));
     await settled();
@@ -101,18 +103,16 @@ describe("ResultsPage", () => {
       const [legacy, cardio3, pneumonia, , tumor, , , cardio1] = rows;
       expect(legacy[COL.category]).toBe("—");
       expect(legacy[COL.subCategory]).toBe("—");
-      expect(legacy[COL.size]).toBe("512 B");
       expect(legacy[COL.sensitivity]).toBe("0.00");
       expect(legacy[COL.vectorized]).toBe("pending");
       expect(cardio3[COL.confidence]).toBe("100.00");
-      expect(cardio3[COL.size]).toBe("3.00 MB");
       expect(cardio3[COL.vectorized]).toBe("yes");
       expect(pneumonia.slice(COL.confidence, COL.confidence + 6)).toEqual(["—", "—", "—", "—", "—", "—"]);
       expect(tumor[COL.vectorized]).toBe("pending");
       expect(cardio1[COL.confidence]).toBe("97.50");
       expect(cardio1[9]).toBe("91.25");
-      expect(cardio1[COL.size]).toBe("2.0 KB");
-      expect(cardio1[12]).not.toBe("—");
+      expect(cardio1[COL.inserted]).not.toBe("—");
+      expect(cardio1[COL.vectorized]).toBe("yes");
     });
 
     it("shows the empty state when nothing exists", async () => {
@@ -171,7 +171,7 @@ describe("ResultsPage", () => {
       db.results = [...db.results, makeResult({ modelName: "BrandNewModel", category: "Oncology", subCategory: "Breast" })];
       const { user } = await openResults();
       await openFilters(user);
-      await user.click(multi("Model").getByRole("button"));
+      await user.click(multi("Model").getByRole("button", { name: "Model" }));
       expect(multi("Model").getAllByRole("checkbox").map((c) => c.parentElement?.textContent)).toEqual([
         "BrandNewModel",
         "CardioNet",
@@ -180,7 +180,7 @@ describe("ResultsPage", () => {
         "NeuroSlice",
       ]);
       await user.keyboard("{Escape}");
-      await user.click(multi("Category").getByRole("button"));
+      await user.click(multi("Category").getByRole("button", { name: "Category" }));
       expect(multi("Category").getAllByRole("checkbox").map((c) => c.parentElement?.textContent)).toEqual([
         "Cardiology",
         "Neurology",
@@ -193,11 +193,9 @@ describe("ResultsPage", () => {
       const { user } = await openResults("/results?version=1.0.0&modelName=CardioNet");
       await openFilters(user);
       expect(filterBar().queryByText(/version/i)).toBeNull();
-      expect([...document.querySelectorAll(".multi-select-label")].map((e) => e.textContent)).toEqual([
-        "Model",
-        "Category",
-        "Sub Category",
-      ]);
+      expect(
+        [...document.querySelectorAll("#results-filters .multi-select-label")].map((e) => e.textContent),
+      ).toEqual(["Model", "Category", "Sub Category"]);
       expect(lastResultsQuery().has("version")).toBe(false);
       expect(lastResultsQuery().has("modelName")).toBe(false);
       expect(tableRows()).toHaveLength(8);
@@ -222,7 +220,7 @@ describe("ResultsPage", () => {
       await waitFor(() =>
         expect(db.filterOptionRequests.at(-1)?.searchParams.getAll("category")).toEqual(["Neurology"]),
       );
-      await user.click(multi("Sub Category").getByRole("button"));
+      await user.click(multi("Sub Category").getByRole("button", { name: "Sub Category" }));
       await waitFor(() =>
         expect(multi("Sub Category").getAllByRole("checkbox").map((c) => c.parentElement?.textContent)).toEqual([
           "Stroke",
@@ -351,7 +349,7 @@ describe("ResultsPage", () => {
       expect(screen.getByRole("button", { name: /^Filters/ })).toHaveTextContent("2");
       await openFilters(user);
       expect(screen.getByLabelText("Confidence/Accuracy value")).toHaveValue(95);
-      expect(multi("Model").getByRole("button")).toHaveTextContent("ChestScan");
+      expect(multi("Model").getByRole("button", { name: "Model" })).toHaveTextContent("ChestScan");
     });
 
     it("toggles the filter panel", async () => {
@@ -400,9 +398,9 @@ describe("ResultsPage", () => {
       expect(screen.getByLabelText("Confidence/Accuracy value")).toHaveValue(null);
       expect(screen.getByLabelText("Recall value")).toHaveValue(null);
       expect(screen.queryByText("Value must be between 0 and 100")).toBeNull();
-      expect(multi("Model").getByRole("button")).toHaveTextContent("All");
-      expect(multi("Category").getByRole("button")).toHaveTextContent("All");
-      expect(multi("Sub Category").getByRole("button")).toHaveTextContent("All");
+      expect(multi("Model").getByRole("button", { name: "Model" })).toHaveTextContent("All");
+      expect(multi("Category").getByRole("button", { name: "Category" })).toHaveTextContent("All");
+      expect(multi("Sub Category").getByRole("button", { name: "Sub Category" })).toHaveTextContent("All");
       expect(filterBar().getByRole("combobox", { name: "Vectorized" })).toHaveValue("all");
     });
 

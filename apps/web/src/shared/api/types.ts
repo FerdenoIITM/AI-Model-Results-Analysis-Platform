@@ -73,11 +73,9 @@ export interface ChatTurn {
 
 export interface ChatRequest {
   question: string;
-  modelName?: string;
-  version?: string;
-  iterationId?: string;
-  fromIso?: string;
-  toIso?: string;
+  modelNames?: string[];
+  categories?: string[];
+  subCategories?: string[];
   history?: ChatTurn[];
 }
 

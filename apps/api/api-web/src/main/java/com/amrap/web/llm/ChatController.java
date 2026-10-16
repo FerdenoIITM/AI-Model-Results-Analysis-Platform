@@ -26,11 +26,9 @@ public class ChatController {
         SecurityUtils.requireCurrentUser();
         ChatResponse response = chatService.ask(new ChatRequest(
                 body.question(),
-                body.modelName(),
-                body.version(),
-                body.iterationId(),
-                body.fromIso(),
-                body.toIso(),
+                body.modelNames(),
+                body.categories(),
+                body.subCategories(),
                 body.history()));
         return ResponseEntity.ok(response);
     }

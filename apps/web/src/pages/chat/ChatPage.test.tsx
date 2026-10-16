@@ -23,38 +23,47 @@ describe("ChatPage", () => {
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 
-  it("sends a question and shows the answer with its sources", async () => {
+  it("sends a question and shows the answer without sources", async () => {
     const { user } = await openChat();
     await user.type(input(), "  Which model scored best?  {Enter}");
     expect(await screen.findByText("CardioNet 1.0.0 had the highest confidence (97.5).")).toBeInTheDocument();
     expect(screen.getByText("Which model scored best?")).toHaveClass("chat-bubble-text");
     expect(db.chatRequests).toEqual([{ question: "Which model scored best?" }]);
     expect(input()).toHaveValue("");
-    const sources = screen.getByText("Sources (1)").closest("details")!;
-    expect(within(sources).getByText("CardioNet")).toBeInTheDocument();
-    expect(sources).toHaveTextContent("v1.0.0");
-    expect(sources).toHaveTextContent("iter 20260101000001");
-    expect(sources).toHaveTextContent("(score 0.912)");
-    expect(sources).toHaveTextContent("result r-0001");
+    expect(screen.queryByText(/Sources/)).toBeNull();
     expect(screen.queryByText("Try one of these to get started:")).toBeNull();
   });
 
-  it("sends the model, version and today's date range when set", async () => {
+  it("sends selected model, category and sub category filters", async () => {
     const { user } = await openChat();
-    await user.type(screen.getByLabelText("Model"), " CardioNet ");
-    await user.type(screen.getByLabelText("Version"), "1.0.0");
-    await user.selectOptions(screen.getByLabelText("Date"), "today");
-    await user.type(input(), "What ran today?");
+
+    function multi(label: string) {
+      const root = screen.getByText(label, { selector: ".multi-select-label" }).closest(".multi-select") as HTMLElement;
+      return within(root);
+    }
+
+    async function pick(label: string, option: string) {
+      const m = multi(label);
+      const trigger = m.getByRole("button", { name: label });
+      if (trigger.getAttribute("aria-expanded") !== "true") {
+        await user.click(trigger);
+      }
+      await user.click(await m.findByRole("checkbox", { name: option }));
+      await user.keyboard("{Escape}");
+    }
+
+    await pick("Model", "CardioNet");
+    await pick("Category", "Cardiology");
+    await pick("Sub Category", "Aortic Valve");
+    await user.type(input(), "What ran?");
     await user.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(db.chatRequests).toHaveLength(1));
-    const body = db.chatRequests[0] as Record<string, string>;
-    expect(body.modelName).toBe("CardioNet");
-    expect(body.version).toBe("1.0.0");
-    const from = new Date(body.fromIso);
-    const to = new Date(body.toIso);
-    expect(to.getTime() - from.getTime()).toBe(24 * 60 * 60 * 1000);
-    expect(from.getTime()).toBeLessThanOrEqual(Date.now());
-    expect(to.getTime()).toBeGreaterThan(Date.now());
+    expect(db.chatRequests[0]).toEqual({
+      question: "What ran?",
+      modelNames: ["CardioNet"],
+      categories: ["Cardiology"],
+      subCategories: ["Aortic Valve"],
+    });
   });
 
   it("includes the earlier conversation as history", async () => {
@@ -102,23 +111,6 @@ describe("ChatPage", () => {
     release();
     expect(await screen.findByText("done")).toBeInTheDocument();
     expect(screen.queryByText(/Sources/)).toBeNull();
-  });
-
-  it("shows placeholders for citations with missing fields", async () => {
-    server.use(
-      http.post(`${API}/chat`, () =>
-        HttpResponse.json({
-          answer: "partial",
-          citations: [{ resultId: null, modelName: null, version: null, iterationId: null, insertedAt: null, chunkIndex: null, score: null }],
-        }),
-      ),
-    );
-    const { user } = await openChat();
-    await user.type(input(), "q{Enter}");
-    const sources = (await screen.findByText("Sources (1)")).closest("details")!;
-    expect(sources).toHaveTextContent("? · v? · iter ?");
-    expect(sources).toHaveTextContent("result unknown · —");
-    expect(sources).not.toHaveTextContent("score");
   });
 
   it("clears the conversation", async () => {

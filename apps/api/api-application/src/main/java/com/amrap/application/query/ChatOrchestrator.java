@@ -2,8 +2,10 @@ package com.amrap.application.query;
 
 import com.amrap.application.common.AppException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +26,7 @@ public class ChatOrchestrator {
     private final SqlQueryService sqlQueryService;
     private final RagSearchService ragSearchService;
     private final AnswerService answerService;
+    private final ChatScopeService chatScopeService;
     private final OllamaChatClient ollama;
     private final ChatProperties chatProperties;
 
@@ -33,6 +36,7 @@ public class ChatOrchestrator {
             SqlQueryService sqlQueryService,
             RagSearchService ragSearchService,
             AnswerService answerService,
+            ChatScopeService chatScopeService,
             OllamaChatClient ollama,
             ChatProperties chatProperties) {
         this.ruleGate = ruleGate;
@@ -40,6 +44,7 @@ public class ChatOrchestrator {
         this.sqlQueryService = sqlQueryService;
         this.ragSearchService = ragSearchService;
         this.answerService = answerService;
+        this.chatScopeService = chatScopeService;
         this.ollama = ollama;
         this.chatProperties = chatProperties;
     }
@@ -97,10 +102,20 @@ public class ChatOrchestrator {
                             + "running and models are pulled, then restart the API.",
                     List.of());
         }
+        List<UUID> scopeIds = chatScopeService.resolveResultIds(request);
+        if (scopeIds != null && scopeIds.isEmpty()) {
+            return new ChatResponse(
+                    "I don't have any ingested results that match your filters yet.", List.of());
+        }
+        List<UUID> merged = mergeIds(restrictIds, scopeIds);
+        if (merged != null && merged.isEmpty()) {
+            return new ChatResponse(
+                    "I don't have any ingested results that match your filters yet.", List.of());
+        }
         String searchQuery = history.isEmpty()
                 ? request.question().trim()
                 : rewriteQuery(request.question().trim(), history);
-        List<Document> hits = ragSearchService.search(request, searchQuery, restrictIds);
+        List<Document> hits = ragSearchService.search(request, searchQuery, merged);
         return answerService.answer(request, history, List.of(), hits);
     }
 
@@ -126,8 +141,31 @@ public class ChatOrchestrator {
         String searchQuery = history.isEmpty()
                 ? request.question().trim()
                 : rewriteQuery(request.question().trim(), history);
-        List<Document> hits = ragSearchService.search(request, searchQuery, ids);
+        List<UUID> scopeIds = chatScopeService.resolveResultIds(request);
+        List<UUID> merged = mergeIds(ids, scopeIds);
+        if (merged != null && merged.isEmpty()) {
+            return answerService.answer(request, history, rows, List.of());
+        }
+        List<Document> hits = ragSearchService.search(request, searchQuery, merged);
         return answerService.answer(request, history, rows, hits);
+    }
+
+    /** Intersect two id lists. Null means “no restriction” on that side; empty means no matches. */
+    static List<UUID> mergeIds(List<UUID> a, List<UUID> b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        Set<UUID> allowed = new HashSet<>(b);
+        List<UUID> out = new ArrayList<>();
+        for (UUID id : a) {
+            if (allowed.contains(id)) {
+                out.add(id);
+            }
+        }
+        return out;
     }
 
     private String rewriteQuery(String question, List<ChatTurn> history) {

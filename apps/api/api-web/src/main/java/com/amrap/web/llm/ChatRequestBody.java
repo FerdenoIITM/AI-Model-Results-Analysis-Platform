@@ -8,10 +8,8 @@ import java.util.List;
 
 public record ChatRequestBody(
         @NotBlank @Size(max = 2000) String question,
-        @Size(max = 255) String modelName,
-        @Size(max = 100) String version,
-        @Size(max = 255) String iterationId,
-        String fromIso,
-        String toIso,
+        List<@Size(max = 255) String> modelNames,
+        List<@Size(max = 120) String> categories,
+        List<@Size(max = 120) String> subCategories,
         @Valid List<ChatTurn> history) {
 }

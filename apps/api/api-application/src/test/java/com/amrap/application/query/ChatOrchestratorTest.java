@@ -24,6 +24,7 @@ class ChatOrchestratorTest {
     private SqlQueryService sqlQueryService;
     private RagSearchService ragSearchService;
     private AnswerService answerService;
+    private ChatScopeService chatScopeService;
     private ChatOrchestrator orchestrator;
 
     @BeforeEach
@@ -33,15 +34,24 @@ class ChatOrchestratorTest {
         sqlQueryService = mock(SqlQueryService.class);
         ragSearchService = mock(RagSearchService.class);
         answerService = mock(AnswerService.class);
+        chatScopeService = mock(ChatScopeService.class);
         OllamaChatClient ollama = mock(OllamaChatClient.class);
         ChatProperties props = new ChatProperties();
+        when(chatScopeService.resolveResultIds(any())).thenReturn(null);
         orchestrator = new ChatOrchestrator(
-                ruleGate, classifier, sqlQueryService, ragSearchService, answerService, ollama, props);
+                ruleGate,
+                classifier,
+                sqlQueryService,
+                ragSearchService,
+                answerService,
+                chatScopeService,
+                ollama,
+                props);
     }
 
     @Test
     void noneRouteFromRuleGateSkipsClassifier() {
-        ChatResponse response = orchestrator.ask(new ChatRequest("hi", null, null, null, null, null, null));
+        ChatResponse response = orchestrator.ask(req("hi"));
         assertThat(response.answer()).containsIgnoringCase("Hello");
         verify(classifier, never()).classify(any(), any());
     }
@@ -89,7 +99,19 @@ class ChatOrchestratorTest {
         verify(sqlQueryService, never()).run(any(), any());
     }
 
+    @Test
+    void ragWithEmptyUiScopeSkipsSearch() {
+        when(classifier.classify(any(), any())).thenReturn(ChatRoute.RAG);
+        when(ragSearchService.available()).thenReturn(true);
+        when(chatScopeService.resolveResultIds(any())).thenReturn(List.of());
+
+        ChatResponse response = orchestrator.ask(
+                new ChatRequest("notes?", List.of("MissingModel"), null, null, null));
+        assertThat(response.answer()).containsIgnoringCase("match your filters");
+        verify(ragSearchService, never()).search(any(), any(), any());
+    }
+
     private static ChatRequest req(String q) {
-        return new ChatRequest(q, null, null, null, null, null, null);
+        return new ChatRequest(q, null, null, null, null);
     }
 }

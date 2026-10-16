@@ -27,7 +27,11 @@ function setup(initial: string[] = [], options: string[] = OPTIONS) {
   }
   const user = userEvent.setup();
   render(<Harness />);
-  return { user, onChange, trigger: () => screen.getByRole("button") };
+  return {
+    user,
+    onChange,
+    trigger: () => screen.getByRole("button", { name: "Model" }),
+  };
 }
 
 describe("MultiSelectFilter", () => {
@@ -53,11 +57,45 @@ describe("MultiSelectFilter", () => {
     expect(onChange).toHaveBeenLastCalledWith(["NeuroSlice"]);
     await user.click(screen.getByRole("checkbox", { name: "CardioNet" }));
     expect(onChange).toHaveBeenLastCalledWith(["NeuroSlice", "CardioNet"]);
-    expect(trigger()).toHaveTextContent("NeuroSlice, CardioNet");
+    expect(trigger()).toHaveTextContent("2 selected");
+    expect(screen.getByLabelText("Selected Model")).toHaveTextContent("NeuroSlice");
+    expect(screen.getByLabelText("Selected Model")).toHaveTextContent("CardioNet");
     await user.click(screen.getByRole("checkbox", { name: "NeuroSlice" }));
     expect(onChange).toHaveBeenLastCalledWith(["CardioNet"]);
+    expect(trigger()).toHaveTextContent("CardioNet");
     expect(screen.getByRole("checkbox", { name: "CardioNet" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "NeuroSlice" })).not.toBeChecked();
+  });
+
+  it("removes a selection from its chip", async () => {
+    const { user, onChange, trigger } = setup(["NeuroSlice", "CardioNet"]);
+    expect(trigger()).toHaveTextContent("2 selected");
+    await user.click(screen.getByRole("button", { name: "Remove NeuroSlice" }));
+    expect(onChange).toHaveBeenLastCalledWith(["CardioNet"]);
+    expect(screen.queryByRole("button", { name: "Remove NeuroSlice" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Remove CardioNet" })).toBeInTheDocument();
+    expect(trigger()).toHaveTextContent("CardioNet");
+  });
+
+  it("selects all and deselects all from the panel actions", async () => {
+    const { user, onChange, trigger } = setup(["ChestScan"]);
+    await user.click(trigger());
+    await user.click(screen.getByRole("button", { name: "Select all" }));
+    expect(onChange).toHaveBeenLastCalledWith(["ChestScan", "CardioNet", "NeuroSlice"]);
+    expect(trigger()).toHaveTextContent("3 selected");
+    await user.click(screen.getByRole("button", { name: "Deselect all" }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(trigger()).toHaveTextContent("All");
+  });
+
+  it("select all / deselect all apply to the current search matches", async () => {
+    const { user, onChange, trigger } = setup(["ChestScan"]);
+    await user.click(trigger());
+    await user.type(screen.getByLabelText("Search Model"), "net");
+    await user.click(screen.getByRole("button", { name: "Select all" }));
+    expect(onChange).toHaveBeenLastCalledWith(["ChestScan", "CardioNet"]);
+    await user.click(screen.getByRole("button", { name: "Deselect all" }));
+    expect(onChange).toHaveBeenLastCalledWith(["ChestScan"]);
   });
 
   it("shows existing selections as checked", async () => {
