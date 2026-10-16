@@ -16,14 +16,28 @@ import org.springframework.stereotype.Component;
 public class RuleGate {
 
     private static final Pattern GREETING = Pattern.compile(
-            "^(hi|hello|hey|good\\s+(morning|afternoon|evening)|thanks|thank\\s+you|bye|goodbye)!?$",
+            "^(hi|hello|hey|good\\s+(morning|afternoon|evening)|thanks|thank\\s+you|bye|goodbye"
+                    + "|how\\s+are\\s+you|how'?s\\s+it\\s+going)([!.?]*)?$",
             Pattern.CASE_INSENSITIVE);
+
+    /** Calendar / clock only — not "results for today" (those mention results/model/metrics). */
     private static final Pattern ASK_DATE = Pattern.compile(
-            "^(what('s|\\s+is)\\s+(the\\s+)?(date|today)|today'?s\\s+date)\\??$",
+            "^(what'?s|whats|what\\s+is)\\s+(the\\s+)?"
+                    + "(today'?s\\s+)?date(\\s+for\\s+today)?([!.?]*)?$"
+                    + "|^today'?s\\s+date([!.?]*)?$"
+                    + "|^what\\s+day\\s+is\\s+it([!.?]*)?$",
             Pattern.CASE_INSENSITIVE);
+
     private static final Pattern ASK_TIME = Pattern.compile(
-            "^(what('s|\\s+is)\\s+(the\\s+)?time|current\\s+time)\\??$",
+            "^(what'?s|whats|what\\s+is)\\s+(the\\s+)?(current\\s+)?time([!.?]*)?$"
+                    + "|^current\\s+time([!.?]*)?$",
             Pattern.CASE_INSENSITIVE);
+
+    private static final Pattern ANALYTICS = Pattern.compile(
+            "\\b(result|results|model|f1|accuracy|recall|precision|sensitivity|specificity"
+                    + "|metric|version|iteration|ingested|submitted|category)\\b",
+            Pattern.CASE_INSENSITIVE);
+
     private static final Pattern DESTRUCTIVE = Pattern.compile(
             "\\b(delete|drop|truncate|update\\s+all|insert\\s+into|remove\\s+all|wipe|destroy)\\b",
             Pattern.CASE_INSENSITIVE);
@@ -47,14 +61,15 @@ public class RuleGate {
         if (GREETING.matcher(q).matches()) {
             return Optional.of(new ChatResponse("Hello! Ask me about your model results.", java.util.List.of()));
         }
-        if (ASK_DATE.matcher(q).matches()) {
+        // "results for today" must not be answered here — leave to SQL/RAG.
+        if (!ANALYTICS.matcher(q).find() && ASK_DATE.matcher(q).matches()) {
             LocalDate day = LocalDate.now(ragProperties.zoneId());
             return Optional.of(new ChatResponse(
                     "Today is " + day.format(DateTimeFormatter.ISO_LOCAL_DATE)
                             + " (" + ragProperties.zoneId() + ").",
                     java.util.List.of()));
         }
-        if (ASK_TIME.matcher(q).matches()) {
+        if (!ANALYTICS.matcher(q).find() && ASK_TIME.matcher(q).matches()) {
             LocalTime time = LocalTime.now(ragProperties.zoneId());
             return Optional.of(new ChatResponse(
                     "The current time is "

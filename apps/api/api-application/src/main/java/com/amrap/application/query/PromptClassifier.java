@@ -18,8 +18,11 @@ public class PromptClassifier {
             You classify questions for AMRAP (AI model results analytics).
             Reply with ONLY a JSON object: {"route":"NONE|SQL|RAG|HYBRID"}
             Rules:
-            - NONE: greetings, date/time, or help that needs no database.
-            - SQL: counts, averages, best/worst metrics, lists filtered by model/version/date/category/metrics columns.
+            - NONE: greetings, "how are you", or asking the calendar date/clock time of today
+              (e.g. "what's the date for today") when the user is NOT asking about stored results.
+            - SQL: counts, averages, best/worst metrics, lists of results filtered by
+              model/version/date/category/metrics. Use SQL for "results for today", not for
+              "what is today's date".
             - RAG: meaning/notes/datasets/free-text explanations from result JSON chunks.
             - HYBRID: needs both column filters AND text/notes (e.g. "notes of models with F1 > 90").
             Use conversation history to resolve pronouns such as them/those.

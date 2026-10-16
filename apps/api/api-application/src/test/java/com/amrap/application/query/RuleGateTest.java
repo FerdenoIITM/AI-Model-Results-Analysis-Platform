@@ -34,7 +34,19 @@ class RuleGateTest {
     }
 
     @Test
+    void answersDateForTodayPhrasings() {
+        assertThat(gate.tryAnswer("Whats the date for today").orElseThrow().answer()).contains("Today is");
+        assertThat(gate.tryAnswer("Whats the today's date").orElseThrow().answer()).contains("Today is");
+    }
+
+    @Test
+    void answersHowAreYou() {
+        assertThat(gate.tryAnswer("How are you").orElseThrow().answer()).contains("Hello");
+    }
+
+    @Test
     void leavesAnalyticsToPipeline() {
         assertThat(gate.tryAnswer("What is the best F1 score?")).isEmpty();
+        assertThat(gate.tryAnswer("results for today")).isEmpty();
     }
 }
