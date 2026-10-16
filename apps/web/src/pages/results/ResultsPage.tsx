@@ -36,12 +36,6 @@ function formatDateTime(value: string | null | undefined): string {
   });
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
-}
-
 function formatMetric(value: number | null): string {
   if (value == null || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat(undefined, {
@@ -412,7 +406,6 @@ export function ResultsPage() {
                   onSort={(name) => commitQuery({ ...query, sort: cycleSort(query.sort, name) }, true)}
                 />
               ))}
-              <th>Size</th>
               <SortTh label="Inserted" field="insertedAt" sort={query.sort} onSort={(field) => commitQuery({ ...query, sort: toggleSort(query.sort, field, true) }, true)} />
               <th>Vectorized</th>
               <th></th>
@@ -432,7 +425,6 @@ export function ResultsPage() {
                 <td className="cell-num">{formatMetric(r.f1Score)}</td>
                 <td className="cell-num">{formatMetric(r.recall)}</td>
                 <td className="cell-num">{formatMetric(r.precision)}</td>
-                <td className="cell-num">{formatBytes(r.sizeBytes)}</td>
                 <td className="cell-date">{formatDateTime(r.insertedAt)}</td>
                 <td className="cell-status">
                   {r.vectorized ? (
