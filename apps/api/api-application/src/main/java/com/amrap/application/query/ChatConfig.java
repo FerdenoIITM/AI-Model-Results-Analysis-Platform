@@ -1,9 +1,7 @@
 package com.amrap.application.query;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,15 +11,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @EnableConfigurationProperties(ChatProperties.class)
 public class ChatConfig {
 
-    @Bean
-    @ConditionalOnMissingBean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
-
     /**
      * Read-only pool for chat SQL. Wrapped in {@link ChatJdbc} so Spring Boot still
      * auto-configures the primary app {@link JdbcTemplate} / datasource.
+     * Uses Boot's ObjectMapper (with JavaTimeModule) — do not register a bare ObjectMapper here.
      */
     @Bean
     @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${amrap.chat.datasource.password:}')")
