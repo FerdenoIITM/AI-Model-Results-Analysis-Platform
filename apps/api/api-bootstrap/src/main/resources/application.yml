@@ -27,7 +27,8 @@ spring:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       chat:
         options:
-          model: ${OLLAMA_CHAT_MODEL:llama3.2:3b}
+          # Used by Spring AI auto-config; answer path uses amrap.chat.answer-model.
+          model: ${OLLAMA_ANSWER_MODEL:${OLLAMA_CHAT_MODEL:qwen2.5:7b}}
           temperature: 0.2
       embedding:
         options:
@@ -64,6 +65,19 @@ amrap:
     # IANA zone used for "today"/"yesterday" in chat and for generated iteration IDs.
     # Empty means the JVM default.
     timezone: ${TZ:}
+  chat:
+    ollama-base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    classify-model: ${OLLAMA_CLASSIFY_MODEL:qwen2.5:3b}
+    sql-model: ${OLLAMA_SQL_MODEL:qwen2.5-coder:7b}
+    # Answer model; OLLAMA_CHAT_MODEL kept as fallback for older env files.
+    answer-model: ${OLLAMA_ANSWER_MODEL:${OLLAMA_CHAT_MODEL:qwen2.5:7b}}
+    sql-max-rows: ${CHAT_SQL_MAX_ROWS:200}
+    sql-timeout-ms: ${CHAT_SQL_TIMEOUT_MS:3000}
+    ollama-timeout-ms: ${OLLAMA_TIMEOUT_MS:120000}
+    datasource:
+      url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:amrap}
+      username: ${CHAT_DB_USER:amrap_chat_ro}
+      password: ${CHAT_DB_PASSWORD:}
 
 management:
   endpoints:

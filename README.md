@@ -126,13 +126,22 @@ This copies `env/<env>.env.example` to `.env.<env>` and fills every `__GENERATE_
 Review the file, especially:
 
 - `POSTGRES_*`: the database connection. Fill in `POSTGRES_PASSWORD` with the password of `POSTGRES_USER` on your host Postgres.
+- `CHAT_DB_USER` / `CHAT_DB_PASSWORD`: Postgres login used only for chat text-to-SQL (role `amrap_chat_ro`, not an AMRAP app user). Must match the password set when applying `V5b__chat_ro_role.sh`.
+- `OLLAMA_CLASSIFY_MODEL`, `OLLAMA_SQL_MODEL`, `OLLAMA_ANSWER_MODEL`, `OLLAMA_EMBED_MODEL`: local models for the routed chat pipeline.
 - `WEB_PORT`, `API_PORT`, `DB_PORT`, `OLLAMA_PORT`: published host ports (must differ between environments that run at the same time).
 - `TZ`: time zone for "today" in chat and for iteration IDs.
 - `SUPERADMIN_*`: the first account created by `make superadmin`.
 
 ### 4. Set up the database
 
-**Host Postgres (default):** create the environment's database (`AMRAP-Dev`, `AMRAP-Test` or `AMRAP-Prod`) and apply `V1__init.sql`, `V3__results_rag.sql` and `V4__result_metrics.sql` from `infra/db/migrations` in order (pgAdmin or `psql`). Then create the first superadmin:
+**Host Postgres (default):** create the environment's database (`AMRAP-Dev`, `AMRAP-Test` or `AMRAP-Prod`) and apply `V1__init.sql`, `V3__results_rag.sql`, `V4__result_metrics.sql`, and `V5__chat_readonly.sql` from `infra/db/migrations` in order (pgAdmin or `psql`). V5 creates view `v_chat_results` and role `amrap_chat_ro` (default password `amrap-chat-ro-change-me`, matching `CHAT_DB_PASSWORD` in the env examples). To set a stronger password, put it in `CHAT_DB_PASSWORD` and run:
+
+```bash
+CHAT_DB_PASSWORD='(value from .env.<env>)' POSTGRES_USER=postgres POSTGRES_DB=AMRAP-Dev \
+  ./infra/db/migrations/V5b__chat_ro_role.sh
+```
+
+Then create the first superadmin:
 
 ```bash
 make superadmin ENV=test      # uses SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD from .env.test
@@ -152,7 +161,9 @@ make dev-down           # stop (data is kept)
 
 The browser always calls the API at `/api` on the same address as the page; the web server (nginx, or Vite in dev) forwards it to the API. `make test` and `make prod` rebuild the images, so re-run them after code changes.
 
-On the first start the `ollama-init` container downloads the models (about 2.3 GB) into the shared volume named by `OLLAMA_MODELS_VOLUME`; every environment reuses it. Chat and vectorization start working once it logs `Models ready.`
+On the first start the `ollama-init` container downloads the embed / classify / SQL / answer models into the shared volume named by `OLLAMA_MODELS_VOLUME`; every environment reuses it. Expect several GB (7B models). Chat and vectorization start working once it logs `Models ready.`
+
+Chat routing (NONE / SQL / RAG / HYBRID) runs inside the API process. SQL routes query the `v_chat_results` view as `amrap_chat_ro`; they never use the `users` table.
 
 ## Submitting results
 

@@ -101,6 +101,13 @@ Indexes:
 - `(sub_category)` where not null — subcategory without a category
 - one btree per metric where that metric is not null — independent range filters, combined with bitmap AND
 
+### V5 — chat read-only view and role
+
+See [`infra/db/migrations/V5__chat_readonly.sql`](../infra/db/migrations/V5__chat_readonly.sql).
+
+- View `v_chat_results`: safe projection of `results` (id, model/version/iteration, dates, category, metrics). Excludes `json_path`, `content_hash`, `created_by`.
+- Postgres login `amrap_chat_ro` (not an AMRAP app user): `SELECT` on that view only. Used by chat text-to-SQL. Default password `amrap-chat-ro-change-me`; sync with `CHAT_DB_PASSWORD` via `V5b__chat_ro_role.sh` when you change it.
+
 ### Entity: result_chunks (Spring AI pgvector store)
 
 Managed by Spring AI's `PgVectorStore`. Each ingested result produces N chunks.

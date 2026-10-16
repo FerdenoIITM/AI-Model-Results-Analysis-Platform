@@ -1,5 +1,6 @@
 package com.amrap.it;
 
+import com.amrap.application.query.OllamaChatClient;
 import com.amrap.domain.user.UserRole;
 import com.amrap.security.JwtService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,6 +44,8 @@ public abstract class AbstractIntegrationTest {
 
     public static final String INGEST_KEY = "it-ingest-key";
     public static final String PASSWORD = "Password123!";
+    /** Matches the default password created by V5__chat_readonly.sql. */
+    public static final String CHAT_DB_PASSWORD = "amrap-chat-ro-change-me";
     protected static final String PASSWORD_HASH = new BCryptPasswordEncoder(4).encode(PASSWORD);
 
     protected static final PostgreSQLContainer<?> POSTGRES;
@@ -55,6 +58,7 @@ public abstract class AbstractIntegrationTest {
                 .withUsername("amrap")
                 .withPassword("amrap-it");
         try (Stream<Path> files = Files.list(repoRoot().resolve("infra/db/migrations"))) {
+            // Only .sql — V5 creates the role; V5b.sh is optional password sync for host/Compose.
             files.filter(f -> f.getFileName().toString().endsWith(".sql"))
                     .sorted()
                     .forEach(f -> POSTGRES.withCopyFileToContainer(
@@ -71,11 +75,15 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("amrap.chat.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("amrap.chat.datasource.username", () -> "amrap_chat_ro");
+        registry.add("amrap.chat.datasource.password", () -> CHAT_DB_PASSWORD);
         registry.add("amrap.rag.storage-dir", STORAGE::toString);
         registry.add("amrap.rag.ingest-api-key", () -> INGEST_KEY);
         registry.add("amrap.rag.worker-delay-ms", () -> "3600000");
         registry.add("amrap.security.jwt-secret", () -> "integration-test-secret-at-least-32-characters-long");
         registry.add("spring.ai.ollama.base-url", () -> "http://127.0.0.1:9");
+        registry.add("amrap.chat.ollama-base-url", () -> "http://127.0.0.1:9");
     }
 
     @MockBean
@@ -86,6 +94,9 @@ public abstract class AbstractIntegrationTest {
 
     @MockBean
     protected EmbeddingModel embeddingModel;
+
+    @MockBean
+    protected OllamaChatClient ollamaChatClient;
 
     @Autowired
     protected MockMvc mvc;

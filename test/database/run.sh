@@ -14,6 +14,7 @@ trap cleanup EXIT
 
 docker run -d --name "$NAME" \
   -e POSTGRES_DB=amrap -e POSTGRES_USER=amrap -e POSTGRES_PASSWORD=dbtest \
+  -e CHAT_DB_USER=amrap_chat_ro -e CHAT_DB_PASSWORD=dbtest-chat \
   -v "$ROOT/infra/db/migrations:/docker-entrypoint-initdb.d:ro" \
   -v "$HERE:/tests:ro" \
   pgvector/pgvector:pg16 >/dev/null || { echo "Could not start pgvector container"; exit 2; }
