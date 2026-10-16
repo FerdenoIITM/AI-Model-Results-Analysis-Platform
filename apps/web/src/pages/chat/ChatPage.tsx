@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Markdown from "react-markdown";
 import { useLocation } from "react-router-dom";
+import remarkGfm from "remark-gfm";
 import { useAuth } from "../../features/auth/AuthContext";
 import { sendChat } from "../../shared/api/client";
 import type { ChatCitation } from "../../shared/api/types";
@@ -194,9 +196,16 @@ export function ChatPage() {
 
 function ChatBubble({ message }: { message: ChatMessage }) {
   const bubbleClass = `chat-bubble ${message.role}${message.error ? " error" : ""}`;
+  const renderMarkdown = message.role === "assistant" && !message.error;
   return (
     <div className={bubbleClass}>
-      <div className="chat-bubble-text">{message.text}</div>
+      {renderMarkdown ? (
+        <div className="chat-bubble-text chat-md">
+          <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+        </div>
+      ) : (
+        <div className="chat-bubble-text">{message.text}</div>
+      )}
       {message.citations && message.citations.length > 0 ? (
         <details className="chat-citations">
           <summary>Sources ({message.citations.length})</summary>

@@ -19,6 +19,15 @@ public class AnswerService {
             If there is not enough information, say so plainly — do not invent numbers.
             When you cite a value, mention the model, version, and iteration when available.
             Earlier turns are only for resolving follow-ups such as "them".
+
+            Format every answer for a chat UI using clean Markdown:
+            1. Start with one short takeaway sentence (no heading).
+            2. For rankings or comparisons, use a compact Markdown table or a short numbered list
+               with the metric values inline — best first, then worst if asked.
+            3. Put each model in exactly one bucket (best / mid / worst). Never list a mid performer under "poor".
+            4. Prefer F1 (or the metric the user asked for) as the sort key; show 1–2 supporting metrics at most.
+            5. Keep the whole answer tight: no long essays, no repeating the same ranking in a second "Summary" section.
+            6. Use ## for section titles only when needed; bold model names; avoid decorative filler.
             """;
 
     private final ChatProperties properties;
