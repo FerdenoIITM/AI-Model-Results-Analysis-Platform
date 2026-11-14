@@ -15,6 +15,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class RuleGate {
 
+    public static final String OFF_TOPIC_ANSWER =
+            "I can only help with your model results (metrics, notes, comparisons)—not general questions. "
+                    + "What would you like to know about your results?";
+
     private static final Pattern GREETING = Pattern.compile(
             "^(hi|hello|hey|good\\s+(morning|afternoon|evening)|thanks|thank\\s+you|bye|goodbye"
                     + "|how\\s+are\\s+you|how'?s\\s+it\\s+going)([!.?]*)?$",
@@ -76,6 +80,12 @@ public class RuleGate {
                             + time.format(DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT))
                             + " (" + ragProperties.zoneId() + ").",
                     java.util.List.of()));
+        }
+        if (ANALYTICS.matcher(q).find()) {
+            return Optional.empty();
+        }
+        if (q.length() <= 3 && !q.contains(" ") && !q.contains("\t")) {
+            return Optional.of(new ChatResponse(OFF_TOPIC_ANSWER, java.util.List.of()));
         }
         return Optional.empty();
     }

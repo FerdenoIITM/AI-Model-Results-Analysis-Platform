@@ -48,5 +48,15 @@ class RuleGateTest {
     void leavesAnalyticsToPipeline() {
         assertThat(gate.tryAnswer("What is the best F1 score?")).isEmpty();
         assertThat(gate.tryAnswer("results for today")).isEmpty();
+        assertThat(gate.tryAnswer("CardioNet")).isEmpty();
+        assertThat(gate.tryAnswer("f1")).isEmpty();
+    }
+
+    @Test
+    void answersOneWordWithoutLlm() {
+        for (String token : new String[] {"k", "o", "d", "ki", "h"}) {
+            assertThat(gate.tryAnswer(token).orElseThrow().answer()).isEqualTo(RuleGate.OFF_TOPIC_ANSWER);
+        }
+        assertThat(gate.tryAnswer("hi").orElseThrow().answer()).contains("Hello");
     }
 }

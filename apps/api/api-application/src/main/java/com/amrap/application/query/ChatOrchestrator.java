@@ -65,10 +65,7 @@ public class ChatOrchestrator {
 
         return switch (route) {
             case NONE -> ruleGate.tryAnswer(question)
-                    .orElse(new ChatResponse(
-                            "I can only help with your model results (metrics, notes, comparisons)—not general questions. "
-                                    + "What would you like to know about your results?",
-                            List.of()));
+                    .orElse(new ChatResponse(RuleGate.OFF_TOPIC_ANSWER, List.of()));
             case SQL -> runSql(request, history);
             case RAG -> runRag(request, history, null);
             case HYBRID -> runHybrid(request, history);
